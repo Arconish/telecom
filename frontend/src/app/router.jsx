@@ -11,6 +11,7 @@ import AdminSitesPage from "../pages/admin/AdminSitesPage";
 import AdminLinksPage from "../pages/admin/AdminLinksPage";
 import AdminTopologyPage from "../pages/admin/AdminTopologyPage";
 import AdminLinkBudgetPage from "../pages/admin/AdminLinkBudgetPage";
+import AdminMicrowaveLinkBudgetPage from "../pages/admin/AdminMicrowaveLinkBudgetPage";
 import AdminLinkStatusPage from "../pages/admin/AdminLinkStatusPage";
 import AdminPingPage from "../pages/admin/AdminPingPage";
 import AdminImportCenterPage from "../pages/admin/AdminImportCenterPage";
@@ -47,6 +48,10 @@ const router = createBrowserRouter([
       { path: "links", element: <AdminLinksPage /> },
       { path: "topology", element: <AdminTopologyPage /> },
       { path: "link-budget", element: <AdminLinkBudgetPage /> },
+
+      // new isolated page for the microwave_link_budgets table
+      { path: "microwave-link-budgets", element: <AdminMicrowaveLinkBudgetPage /> },
+
       { path: "link-status", element: <AdminLinkStatusPage /> },
       { path: "ping", element: <AdminPingPage /> },
       { path: "imports", element: <AdminImportCenterPage /> },
@@ -75,12 +80,12 @@ const router = createBrowserRouter([
     ),
   },
   {
-  path: "/client/link-status",
-  element: (
-    <ProtectedRoute allowedRoles={["admin", "client"]}>
-      <ClientLinkStatusPage />
-    </ProtectedRoute>
-  ),
+    path: "/client/link-status",
+    element: (
+      <ProtectedRoute allowedRoles={["admin", "client"]}>
+        <ClientLinkStatusPage />
+      </ProtectedRoute>
+    ),
   },
 
   {

@@ -21,7 +21,7 @@ const menuItems = [
   { label: "Sites", path: "/admin/sites", icon: RadioTower },
   { label: "Links", path: "/admin/links", icon: Waypoints },
   { label: "Network Topology", path: "/admin/topology", icon: Network },
-  { label: "Link Budget", path: "/admin/link-budget", icon: Calculator },
+  { label: "Link Budget", path: "/admin/microwave-link-budgets", icon: Calculator },
   { label: "Link Status", path: "/admin/link-status", icon: Activity },
   { label: "Ping", path: "/admin/ping", icon: Wifi },
   { label: "Import Center", path: "/admin/imports", icon: Upload },
