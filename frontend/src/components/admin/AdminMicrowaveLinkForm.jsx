@@ -23,23 +23,23 @@ function AdminMicrowaveLinkForm({
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    if (initialData) {
-      setForm({
-        ne_id: initialData.ne_id ?? "",
-        fe_id: initialData.fe_id ?? "",
-        link_id: initialData.link_id ?? "",
-        management_ip: initialData.management_ip ?? "",
-        web_protocol: initialData.web_protocol ?? "http",
-        link_class: initialData.link_class ?? "",
-        is_active: initialData.is_active ?? true,
-        vendor: initialData.vendor ?? "",
-        model: initialData.model ?? "",
-        type: initialData.type ?? "",
-        status: initialData.status ?? "",
-      });
-    } else {
-      setForm(emptyForm);
-    }
+    setForm(
+      initialData
+        ? {
+            ne_id: initialData.ne_id ?? "",
+            fe_id: initialData.fe_id ?? "",
+            link_id: initialData.link_id ?? "",
+            management_ip: initialData.management_ip ?? "",
+            web_protocol: initialData.web_protocol ?? "http",
+            link_class: initialData.link_class ?? "",
+            is_active: initialData.is_active ?? true,
+            vendor: initialData.vendor ?? "",
+            model: initialData.model ?? "",
+            type: initialData.type ?? "",
+            status: initialData.status ?? "",
+          }
+        : emptyForm
+    );
   }, [initialData]);
 
   const handleChange = (e) => {
@@ -57,14 +57,23 @@ function AdminMicrowaveLinkForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} style={formStyle}>
-      <div style={gridStyle}>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div>
+        <h4 className="text-base font-semibold text-slate-900">
+          Link Information
+        </h4>
+        <p className="mt-1 text-sm text-slate-500">
+          Fill in the microwave link details below.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <FormField label="NE ID">
           <input
             name="ne_id"
             value={form.ne_id}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
             placeholder="Enter NE ID"
           />
         </FormField>
@@ -74,7 +83,7 @@ function AdminMicrowaveLinkForm({
             name="fe_id"
             value={form.fe_id}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
             placeholder="Enter FE ID"
           />
         </FormField>
@@ -84,7 +93,7 @@ function AdminMicrowaveLinkForm({
             name="link_id"
             value={form.link_id}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
             placeholder="Enter Link ID"
             required
           />
@@ -95,7 +104,7 @@ function AdminMicrowaveLinkForm({
             name="management_ip"
             value={form.management_ip}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
             placeholder="Enter management IP"
           />
         </FormField>
@@ -105,7 +114,7 @@ function AdminMicrowaveLinkForm({
             name="web_protocol"
             value={form.web_protocol}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
           >
             <option value="http">http</option>
             <option value="https">https</option>
@@ -117,7 +126,7 @@ function AdminMicrowaveLinkForm({
             name="link_class"
             value={form.link_class}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
             placeholder="Enter link class"
           />
         </FormField>
@@ -127,7 +136,7 @@ function AdminMicrowaveLinkForm({
             name="vendor"
             value={form.vendor}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
             placeholder="Enter vendor"
           />
         </FormField>
@@ -137,7 +146,7 @@ function AdminMicrowaveLinkForm({
             name="model"
             value={form.model}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
             placeholder="Enter model"
           />
         </FormField>
@@ -147,41 +156,70 @@ function AdminMicrowaveLinkForm({
             name="type"
             value={form.type}
             onChange={handleChange}
-            style={inputStyle}
+            className={inputClass}
             placeholder="Enter type"
           />
         </FormField>
 
         <FormField label="Status">
-          <input
+          <select
             name="status"
             value={form.status}
             onChange={handleChange}
-            style={inputStyle}
-            placeholder="Enter status"
-          />
+            className={inputClass}
+          >
+            <option value="">Select status</option>
+            <option value="On Air">On Air</option>
+            <option value="Planned">Planned</option>
+            <option value="Down">Down</option>
+          </select>
         </FormField>
 
-        <div style={checkboxWrap}>
-          <label style={checkboxLabel}>
-            <input
-              type="checkbox"
-              name="is_active"
-              checked={form.is_active}
-              onChange={handleChange}
-            />
-            <span>Active</span>
+        <div className="flex items-end">
+          <label className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div>
+              <div className="text-sm font-semibold text-slate-900">
+                Active State
+              </div>
+              <div className="text-xs text-slate-500">
+                Toggle operational activity
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  form.is_active
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-red-100 text-red-700"
+                }`}
+              >
+                {form.is_active ? "Active" : "Down"}
+              </span>
+
+              <input
+                type="checkbox"
+                name="is_active"
+                checked={form.is_active}
+                onChange={handleChange}
+                className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+            </div>
           </label>
         </div>
       </div>
 
-      <div style={buttonRow}>
-        <button type="submit" style={primaryBtn}>
-          {submitLabel}
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          className={secondaryBtnClass}
+        >
+          Cancel
         </button>
 
-        <button type="button" onClick={onCancel} style={secondaryBtn}>
-          Cancel
+        <button type="submit" className={primaryBtnClass}>
+          {submitLabel}
         </button>
       </div>
     </form>
@@ -190,94 +228,23 @@ function AdminMicrowaveLinkForm({
 
 function FormField({ label, required = false, children }) {
   return (
-    <div style={fieldWrap}>
-      <label style={labelStyle}>
-        {label} {required && <span style={requiredStyle}>*</span>}
+    <div className="flex flex-col">
+      <label className="mb-2 text-sm font-semibold text-slate-700">
+        {label}
+        {required && <span className="ml-1 text-red-600">*</span>}
       </label>
       {children}
     </div>
   );
 }
 
-const formStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 20,
-};
+const inputClass =
+  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
-const gridStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 16,
-};
+const secondaryBtnClass =
+  "rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50";
 
-const fieldWrap = {
-  display: "flex",
-  flexDirection: "column",
-};
-
-const labelStyle = {
-  fontSize: 13,
-  fontWeight: 600,
-  color: "#374151",
-  marginBottom: 6,
-};
-
-const requiredStyle = {
-  color: "#dc2626",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "10px 12px",
-  border: "1px solid #d1d5db",
-  borderRadius: 8,
-  fontSize: 14,
-  boxSizing: "border-box",
-  background: "#fff",
-  outline: "none",
-};
-
-const checkboxWrap = {
-  display: "flex",
-  alignItems: "flex-end",
-};
-
-const checkboxLabel = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  fontSize: 14,
-  color: "#111827",
-  cursor: "pointer",
-};
-
-const buttonRow = {
-  display: "flex",
-  gap: 12,
-  flexWrap: "wrap",
-};
-
-const primaryBtn = {
-  padding: "10px 14px",
-  borderRadius: 8,
-  border: "none",
-  background: "#2563eb",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 500,
-};
-
-const secondaryBtn = {
-  padding: "10px 14px",
-  borderRadius: 8,
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#111827",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 500,
-};
+const primaryBtnClass =
+  "rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700";
 
 export default AdminMicrowaveLinkForm;

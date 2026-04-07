@@ -2,7 +2,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useLoading } from "../../context/LoadingContext";
 import TopLoadingBar from "../common/TopLoadingBar";
-import { LayoutDashboard, RadioTower, Activity } from "lucide-react";
+import {
+  LayoutDashboard,
+  RadioTower,
+  Activity,
+  LogOut,
+} from "lucide-react";
 
 function TopNavbar() {
   const { user, logout } = useAuth();
@@ -27,179 +32,74 @@ function TopNavbar() {
   };
 
   return (
-    <header style={navbarStyle}>
+    <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/90 backdrop-blur-md">
       <TopLoadingBar />
 
-      <div style={leftWrapStyle}>
-        <button style={brandButtonStyle} onClick={() => goTo("/client")}>
-          <div style={brandIconWrap}>
-            <LayoutDashboard size={16} />
-          </div>
-          <div style={brandTextWrap}>
-            <span style={brandTitle}>Network Ops</span>
-            <span style={brandSub}>Client Workspace</span>
-          </div>
-        </button>
+      <div className="flex min-h-12 items-center justify-between gap-3 px-3 py-2 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            onClick={() => goTo("/client")}
+            className="flex items-center gap-2 transition hover:text-sky-700"
+          >
+            <div className="flex h-8 w-8 items-center justify-center bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-sm">
+              <LayoutDashboard size={15} />
+            </div>
 
-        <nav style={navStyle}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            <div className="hidden sm:flex flex-col items-start leading-tight">
+              <span className="text-sm font-semibold text-sky-950">
+                Network Ops
+              </span>
+              <span className="text-[11px] text-sky-600">
+                Client Workspace
+              </span>
+            </div>
+          </button>
 
-            return (
-              <button
-                key={item.path}
-                onClick={() => goTo(item.path)}
-                style={{
-                  ...navButtonStyle,
-                  ...(isActive ? navButtonActiveStyle : {}),
-                }}
-              >
-                <Icon size={16} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+          <nav className="flex flex-wrap items-center gap-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
 
-      <div style={rightStyle}>
-        <div style={userBadgeStyle}>
-          <span style={userNameStyle}>{user?.username || "User"}</span>
-          <span style={userRoleStyle}>{user?.role || ""}</span>
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => goTo(item.path)}
+                  className={[
+                    "inline-flex h-8 items-center gap-1.5 border px-2.5 text-xs font-medium transition",
+                    isActive
+                      ? "border-sky-500 bg-sky-500 text-white"
+                      : "border-sky-200 bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-800",
+                  ].join(" ")}
+                >
+                  <Icon size={14} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        <button onClick={handleLogout} style={logoutBtnStyle}>
-          Logout
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="hidden sm:flex flex-col items-end leading-tight">
+            <span className="text-xs font-semibold text-slate-800">
+              {user?.username || "User"}
+            </span>
+            <span className="text-[11px] capitalize text-sky-600">
+              {user?.role || ""}
+            </span>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="inline-flex h-8 items-center gap-1.5 border border-sky-200 bg-white px-2.5 text-xs font-medium text-sky-700 transition hover:bg-sky-50"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+        </div>
       </div>
     </header>
   );
 }
-
-const navbarStyle = {
-  position: "relative",
-  height: 64,
-  background: "rgba(17, 24, 39, 0.96)",
-  color: "#fff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: "0 20px",
-  gap: 18,
-  boxShadow: "0 2px 12px rgba(0,0,0,0.14)",
-  backdropFilter: "blur(10px)",
-  zIndex: 1000,
-};
-
-const leftWrapStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 20,
-  minWidth: 0,
-};
-
-const brandButtonStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  background: "transparent",
-  color: "#fff",
-  border: "none",
-  cursor: "pointer",
-  padding: 0,
-};
-
-const brandIconWrap = {
-  width: 34,
-  height: 34,
-  borderRadius: 10,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "linear-gradient(135deg, #2563eb, #0ea5e9)",
-  boxShadow: "0 4px 14px rgba(37,99,235,0.28)",
-};
-
-const brandTextWrap = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-start",
-};
-
-const brandTitle = {
-  fontSize: 15,
-  fontWeight: 700,
-  lineHeight: 1.1,
-};
-
-const brandSub = {
-  fontSize: 11,
-  color: "#cbd5e1",
-  lineHeight: 1.1,
-};
-
-const navStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  flexWrap: "wrap",
-};
-
-const navButtonStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  background: "transparent",
-  color: "#e5e7eb",
-  border: "1px solid transparent",
-  borderRadius: 10,
-  cursor: "pointer",
-  padding: "8px 12px",
-  fontSize: 13,
-  transition: "all 0.2s ease",
-};
-
-const navButtonActiveStyle = {
-  background: "rgba(255,255,255,0.08)",
-  color: "#fff",
-  border: "1px solid rgba(255,255,255,0.12)",
-};
-
-const rightStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-};
-
-const userBadgeStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-end",
-  padding: "6px 10px",
-  borderRadius: 10,
-  background: "rgba(255,255,255,0.06)",
-};
-
-const userNameStyle = {
-  fontSize: 13,
-  fontWeight: 600,
-};
-
-const userRoleStyle = {
-  fontSize: 11,
-  color: "#cbd5e1",
-  textTransform: "capitalize",
-};
-
-const logoutBtnStyle = {
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.06)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 13,
-};
 
 export default TopNavbar;

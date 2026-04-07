@@ -285,7 +285,7 @@ function LoginPage() {
                 </div>
 
                 <h1 className="text-2xl font-bold tracking-tight text-slate-800">
-                  Network Login
+                  Microwave NMS Login
                 </h1>
 
                 <p className="mt-2 text-sm text-slate-500">

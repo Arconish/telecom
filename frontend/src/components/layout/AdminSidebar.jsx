@@ -33,114 +33,87 @@ const menuItems = [
 ];
 
 function AdminSidebar({ isOpen, isCollapsed, isMobile, onClose }) {
-  const sidebarWidth = isCollapsed ? 84 : 250;
+  const sidebarWidth = isCollapsed ? "w-[84px]" : "w-[260px]";
 
   return (
     <>
-      {isMobile && isOpen && <div style={overlayStyle} onClick={onClose} />}
+      {isMobile && isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-sky-950/20 backdrop-blur-sm"
+          onClick={onClose}
+        />
+      )}
 
       <aside
-        style={{
-          ...sidebarStyle,
-          width: sidebarWidth,
-          transform: isOpen ? "translateX(0)" : "translateX(-100%)",
-          position: "fixed",
-        }}
+        className={[
+          "fixed left-0 top-0 z-50 h-screen border-r border-sky-200 bg-gradient-to-b from-sky-50 via-white to-cyan-50 text-slate-700 shadow-[0_10px_40px_rgba(14,165,233,0.12)] transition-all duration-300",
+          sidebarWidth,
+          isOpen ? "translate-x-0" : "-translate-x-full",
+        ].join(" ")}
       >
-        <div style={headerStyle}>
-          {!isCollapsed && <div style={titleStyle}>Telecom Admin</div>}
+        <div className="flex h-full flex-col">
+          <div className="border-b border-sky-100 px-4 py-4">
+            <div className="flex items-center justify-between">
+              {!isCollapsed && (
+                <div className="min-w-0">
+                  <h2 className="truncate text-lg font-bold tracking-tight text-sky-900">
+                    Telecom Admin
+                  </h2>
+                  <p className="mt-0.5 text-xs text-sky-600">
+                    Management Panel
+                  </p>
+                </div>
+              )}
 
-          {isMobile && (
-            <button style={closeButtonStyle} onClick={onClose}>
-              <X size={20} />
-            </button>
-          )}
-        </div>
+              {isMobile && (
+                <button
+                  onClick={onClose}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-200 bg-white text-sky-700 shadow-sm transition hover:bg-sky-50"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+          </div>
 
-        <div style={menuStyle}>
-          {menuItems.map((item) => {
-            const Icon = item.icon;
+          <div className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4">
+            <div className="space-y-1.5">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
 
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => {
-                  if (isMobile) onClose();
-                }}
-                style={({ isActive }) => ({
-                  ...linkStyle,
-                  justifyContent: isCollapsed ? "center" : "flex-start",
-                  background: isActive ? "#1f2937" : "transparent",
-                })}
-                title={item.label}
-              >
-                <Icon size={18} />
-                {!isCollapsed && <span>{item.label}</span>}
-              </NavLink>
-            );
-          })}
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.path === "/admin"}
+                    title={item.label}
+                    onClick={() => {
+                      if (isMobile) onClose();
+                    }}
+                    className={({ isActive }) =>
+                      [
+                        "group flex items-center rounded-2xl px-3 py-3 text-sm font-medium transition-all duration-200",
+                        isCollapsed ? "justify-center" : "gap-3",
+                        isActive
+                          ? "bg-gradient-to-r from-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-200"
+                          : "text-slate-600 hover:bg-sky-100/70 hover:text-sky-800",
+                      ].join(" ")
+                    }
+                  >
+                    <Icon
+                      size={18}
+                      className="shrink-0 transition-transform duration-200 group-hover:scale-105"
+                    />
+                    {!isCollapsed && <span className="truncate">{item.label}</span>}
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </aside>
     </>
   );
 }
-
-const sidebarStyle = {
-  top: 0,
-  left: 0,
-  height: "100vh",
-  background: "#111827",
-  color: "#fff",
-  padding: 16,
-  boxSizing: "border-box",
-  zIndex: 1200,
-  overflowY: "auto",
-  transition: "all 0.25s ease",
-  boxShadow: "2px 0 12px rgba(0,0,0,0.15)",
-};
-
-const overlayStyle = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.35)",
-  zIndex: 1100,
-};
-
-const headerStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 20,
-};
-
-const titleStyle = {
-  fontSize: 22,
-  fontWeight: "bold",
-};
-
-const closeButtonStyle = {
-  background: "transparent",
-  color: "#fff",
-  border: "none",
-  cursor: "pointer",
-};
-
-const menuStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
-const linkStyle = {
-  color: "#fff",
-  textDecoration: "none",
-  padding: "10px 12px",
-  borderRadius: 8,
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  whiteSpace: "nowrap",
-};
 
 export default AdminSidebar;

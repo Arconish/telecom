@@ -1,7 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  RadioTower,
+  Search,
+  Download,
+  Upload,
+  Plus,
+} from "lucide-react";
 import {
   createMicrowaveLink,
+  deleteMicrowaveLink,
+  exportMicrowaveLinksExcel,
   getMicrowaveLinks,
+  getMicrowaveLinkSummary,
+  importMicrowaveLinksExcel,
   updateMicrowaveLink,
 } from "../../api/microwaveLinkApi";
 import AdminMicrowaveLinkForm from "../../components/admin/AdminMicrowaveLinkForm";
@@ -11,31 +25,123 @@ function AdminLinksPage() {
   const [rows, setRows] = useState([]);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [vendorFilter, setVendorFilter] = useState("All");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingRow, setEditingRow] = useState(null);
+  const [viewingRow, setViewingRow] = useState(null);
+
+  const [summary, setSummary] = useState({
+    total_links: 0,
+    active_links: 0,
+    inactive_links: 0,
+    status_counts: {},
+    vendor_counts: {},
+  });
+
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [messageLog, setMessageLog] = useState([]);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
+  const [sortConfig, setSortConfig] = useState({
+    key: "link_id",
+    direction: "asc",
+  });
+
+  const toastTimer = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const panelClass = "rounded-lg border border-slate-200 bg-white shadow-sm";
+  const smallBtnClass =
+    "inline-flex h-8 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] font-medium whitespace-nowrap transition";
+  const inputClass =
+    "h-8 rounded-md border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none transition focus:border-sky-500";
+  const modalBtnClass =
+    "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50";
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+
+    toastTimer.current = setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
+
+  const addMessageLog = (message, type = "info") => {
+    setMessageLog((prev) => [
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+        time: new Date().toLocaleTimeString(),
+      },
+      ...prev,
+    ]);
+  };
+
+  const buildQueryParams = (
+    pageValue = page,
+    pageSizeValue = pageSize,
+    searchValue = search,
+    statusValue = statusFilter,
+    vendorValue = vendorFilter,
+    sortValue = sortConfig
+  ) => {
+    const params = {
+      search: searchValue || undefined,
+      page: pageValue,
+      page_size: pageSizeValue,
+      sort_by: sortValue.key,
+      sort_order: sortValue.direction,
+    };
+
+    if (["On Air", "Dismantle", "Down"].includes(statusValue)) {
+      params.status = statusValue;
+    }
+
+    if (statusValue === "Active") {
+      params.is_active = true;
+    }
+
+    if (vendorValue !== "All") {
+      params.vendor = vendorValue;
+    }
+
+    return params;
+  };
+
   const fetchRows = async (
     pageValue = page,
     pageSizeValue = pageSize,
-    searchValue = search
+    searchValue = search,
+    statusValue = statusFilter,
+    vendorValue = vendorFilter,
+    sortValue = sortConfig
   ) => {
     try {
       setLoading(true);
       setError("");
 
-      const data = await getMicrowaveLinks({
-        search: searchValue || undefined,
-        page: pageValue,
-        page_size: pageSizeValue,
-      });
+      const data = await getMicrowaveLinks(
+        buildQueryParams(
+          pageValue,
+          pageSizeValue,
+          searchValue,
+          statusValue,
+          vendorValue,
+          sortValue
+        )
+      );
 
       setRows(data.items || []);
       setTotal(data.total || 0);
@@ -44,20 +150,80 @@ function AdminLinksPage() {
       setTotalPages(data.total_pages || 0);
     } catch (err) {
       console.error("Failed to fetch microwave links", err);
-      setError("Failed to load microwave links");
+      const message =
+        err?.response?.data?.detail || "Failed to load microwave links";
+      setError(message);
+      showToast(message, "error");
+      addMessageLog(message, "error");
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchSummary = async () => {
+    try {
+      const data = await getMicrowaveLinkSummary();
+      setSummary({
+        total_links: data.total_links || 0,
+        active_links: data.active_links || 0,
+        inactive_links: data.inactive_links || 0,
+        status_counts: data.status_counts || {},
+        vendor_counts: data.vendor_counts || {},
+      });
+    } catch (err) {
+      console.error("Failed to fetch summary", err);
+      addMessageLog("Failed to fetch summary", "error");
+    }
+  };
+
   useEffect(() => {
-    fetchRows(page, pageSize, search);
-  }, [page, pageSize, search]);
+    const timer = setTimeout(() => {
+      setPage(1);
+      setSearch(searchInput.trim());
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    fetchRows(page, pageSize, search, statusFilter, vendorFilter, sortConfig);
+  }, [page, pageSize, search, statusFilter, vendorFilter, sortConfig]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+  const refreshAll = async ({
+    pageValue = page,
+    pageSizeValue = pageSize,
+    searchValue = search,
+    statusValue = statusFilter,
+    vendorValue = vendorFilter,
+    sortValue = sortConfig,
+  } = {}) => {
+    await Promise.all([
+      fetchRows(
+        pageValue,
+        pageSizeValue,
+        searchValue,
+        statusValue,
+        vendorValue,
+        sortValue
+      ),
+      fetchSummary(),
+    ]);
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
     setPage(1);
-    setSearch(searchInput);
+    setSearch(searchInput.trim());
   };
 
   const handleCreate = async (payload) => {
@@ -66,10 +232,16 @@ function AdminLinksPage() {
       setError("");
       await createMicrowaveLink(payload);
       setShowCreateForm(false);
-      await fetchRows(page, pageSize, search);
+      await refreshAll();
+      showToast("Microwave link created successfully");
+      addMessageLog("Microwave link created successfully", "success");
     } catch (err) {
       console.error("Create microwave link failed", err);
-      setError(err?.response?.data?.detail || "Failed to create microwave link");
+      const message =
+        err?.response?.data?.detail || "Failed to create microwave link";
+      setError(message);
+      showToast(message, "error");
+      addMessageLog(message, "error");
     } finally {
       setSaving(false);
     }
@@ -81,260 +253,634 @@ function AdminLinksPage() {
       setError("");
       await updateMicrowaveLink(editingRow.id, payload);
       setEditingRow(null);
-      await fetchRows(page, pageSize, search);
+      await refreshAll();
+      showToast("Microwave link updated successfully");
+      addMessageLog("Microwave link updated successfully", "success");
     } catch (err) {
       console.error("Update microwave link failed", err);
-      setError(err?.response?.data?.detail || "Failed to update microwave link");
+      const message =
+        err?.response?.data?.detail || "Failed to update microwave link";
+      setError(message);
+      showToast(message, "error");
+      addMessageLog(message, "error");
     } finally {
       setSaving(false);
     }
   };
 
+  const handleDelete = (row) => {
+    setDeleteTarget(row);
+    addMessageLog(`Delete requested for "${row.link_id}"`, "info");
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      setSaving(true);
+      setError("");
+      addMessageLog(`Deleting microwave link "${deleteTarget.link_id}"...`, "info");
+
+      await deleteMicrowaveLink(deleteTarget.id);
+
+      if (viewingRow?.id === deleteTarget.id) setViewingRow(null);
+      if (editingRow?.id === deleteTarget.id) setEditingRow(null);
+
+      const nextPage = rows.length === 1 && page > 1 ? page - 1 : page;
+
+      await refreshAll({ pageValue: nextPage });
+      if (nextPage !== page) setPage(nextPage);
+
+      showToast(`Microwave link "${deleteTarget.link_id}" deleted successfully`);
+      addMessageLog(
+        `Microwave link "${deleteTarget.link_id}" deleted successfully`,
+        "success"
+      );
+
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error("Delete microwave link failed", err);
+      const message =
+        err?.response?.data?.detail || "Failed to delete microwave link";
+      setError(message);
+      showToast(message, "error");
+      addMessageLog(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    if (deleteTarget) {
+      addMessageLog(`Delete cancelled for "${deleteTarget.link_id}"`, "info");
+    }
+    setDeleteTarget(null);
+  };
+
+  const handleSort = (key) => {
+    setPage(1);
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return {
+          key,
+          direction: prev.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return { key, direction: "asc" };
+    });
+  };
+
+  const handleStatusChange = (value) => {
+    setPage(1);
+    setStatusFilter(value);
+  };
+
+  const handleVendorChange = (e) => {
+    setPage(1);
+    setVendorFilter(e.target.value);
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateForm(false);
+    setEditingRow(null);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const blob = await exportMicrowaveLinksExcel(
+        buildQueryParams(1, pageSize, search, statusFilter, vendorFilter, sortConfig)
+      );
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "microwave_links_template.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showToast("Excel exported successfully");
+      addMessageLog("Excel exported successfully", "success");
+    } catch (err) {
+      console.error("Export Excel failed", err);
+      showToast("Failed to export Excel", "error");
+      addMessageLog("Failed to export Excel", "error");
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSaving(true);
+      const result = await importMicrowaveLinksExcel(file);
+      await refreshAll();
+
+      const errorCount = result?.errors?.length || 0;
+      const message = `Import done. Created: ${result.created}, Updated: ${result.updated}, Errors: ${errorCount}`;
+      showToast(message, errorCount > 0 ? "error" : "success");
+      addMessageLog(message, errorCount > 0 ? "error" : "success");
+    } catch (err) {
+      console.error("Import Excel failed", err);
+      const message = err?.response?.data?.detail || "Failed to import Excel";
+      showToast(message, "error");
+      addMessageLog(message, "error");
+    } finally {
+      setSaving(false);
+      e.target.value = "";
+    }
+  };
+
+  const stats = [
+    {
+      label: "Total Links",
+      value: summary.total_links,
+      sub: "All links",
+      icon: RadioTower,
+      iconWrap: "bg-sky-100 text-sky-700",
+    },
+    {
+      label: "Active",
+      value: summary.active_links,
+      sub: "Running",
+      icon: CheckCircle2,
+      iconWrap: "bg-emerald-100 text-emerald-700",
+    },
+    {
+      label: "On Air",
+      value: summary.status_counts["On Air"] || 0,
+      sub: "Operational",
+      icon: Activity,
+      iconWrap: "bg-violet-100 text-violet-700",
+    },
+    {
+      label: "Dismantle / Down",
+      value:
+        (summary.status_counts["Dismantle"] || 0) +
+        (summary.status_counts["Down"] || 0),
+      sub: "Attention",
+      icon: AlertTriangle,
+      iconWrap: "bg-amber-100 text-amber-700",
+    },
+  ];
+
+  const vendorOptions = useMemo(() => {
+    const vendors = Object.keys(summary.vendor_counts || {})
+      .filter(Boolean)
+      .sort();
+    return ["All", ...vendors];
+  }, [summary.vendor_counts]);
+
+  const statusOptions = ["All", "On Air", "Dismantle", "Down", "Active"];
+  const isModalOpen = showCreateForm || Boolean(editingRow);
+
   return (
-    <div style={pageStyle}>
-      <div style={headerRow}>
-        <div>
-          <h2 style={{ margin: 0 }}>Microwave Links</h2>
-          <p style={subText}>Manage microwave link master data</p>
+    <div className="min-h-screen w-full bg-slate-50 p-2 md:p-3">
+      <div className="space-y-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="mb-2 flex flex-col gap-0.5">
+            <h1 className="text-lg font-bold tracking-tight text-slate-900">
+              Microwave Links
+            </h1>
+            <p className="text-[11px] text-slate-500">
+              Manage microwave link records and monitor status summary.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {stats.map((stat) => {
+              const Icon = stat.icon;
+
+              return (
+                <div
+                  key={stat.label}
+                  className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                        {stat.label}
+                      </div>
+                      <div className="mt-0.5 text-base font-bold leading-tight text-slate-900">
+                        {stat.value}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {stat.sub}
+                      </div>
+                    </div>
+
+                    <div
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${stat.iconWrap}`}
+                    >
+                      <Icon size={13} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div style={headerActions}>
-          <form onSubmit={handleSearch} style={searchWrap}>
-            <input
-              placeholder="Search NE / FE / Link ID / IP..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              style={searchInputStyle}
-            />
-            <button type="submit" style={searchBtn}>
-              Search
-            </button>
-          </form>
+        <div className={panelClass}>
+          <div className="border-b border-slate-200 px-3 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {statusOptions.map((item) => {
+                  const active = statusFilter === item;
+                  return (
+                    <button
+                      key={item}
+                      onClick={() => handleStatusChange(item)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                        active
+                          ? "border border-sky-600 bg-sky-600 text-white"
+                          : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
 
-          <button
-            onClick={() => {
-              setEditingRow(null);
-              setShowCreateForm(true);
-            }}
-            style={primaryBtn}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <form
+                  onSubmit={handleSearch}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <div className="relative w-[220px]">
+                    <Search
+                      size={13}
+                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      placeholder="Search NE ID, FE ID, Link ID, IP..."
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      className={`w-full pl-8 pr-2.5 ${inputClass}`}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className={`${smallBtnClass} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`}
+                  >
+                    <Search size={12} />
+                    Search
+                  </button>
+                </form>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Vendor</span>
+                  <select
+                    value={vendorFilter}
+                    onChange={handleVendorChange}
+                    className={`${inputClass} min-w-[150px]`}
+                  >
+                    {vendorOptions.map((vendor) => (
+                      <option key={vendor} value={vendor}>
+                        {vendor}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className={`${smallBtnClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}
+                >
+                  <Download size={12} />
+                  Export
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleImportClick}
+                  className={`${smallBtnClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}
+                >
+                  <Upload size={12} />
+                  Import
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingRow(null);
+                    setShowCreateForm(true);
+                  }}
+                  className={`${smallBtnClass} border-sky-600 bg-sky-600 text-white hover:bg-sky-700`}
+                >
+                  <Plus size={12} />
+                  Add Link
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xlsm"
+                  className="hidden"
+                  onChange={handleImportFile}
+                />
+              </div>
+            </div>
+          </div>
+
+          {messageLog.length > 0 && (
+            <div className="border-b border-slate-200 bg-white px-3 py-3">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-900">Message Log</h3>
+                <button
+                  onClick={() => setMessageLog([])}
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div className="max-h-44 space-y-1.5 overflow-y-auto">
+                {messageLog.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`rounded-md px-2.5 py-2 text-xs ${
+                      item.type === "error"
+                        ? "bg-red-50 text-red-700"
+                        : item.type === "success"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{item.message}</span>
+                      <span className="shrink-0 text-[10px] opacity-70">
+                        {item.time}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+              {error}
+            </div>
+          )}
+
+          {saving && (
+            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+              Processing request...
+            </div>
+          )}
+
+          {loading && (
+            <div className="border-b border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+              Loading microwave links...
+            </div>
+          )}
+
+          <div className="border-b border-slate-200 bg-slate-50 px-3 py-2.5">
+            <div className="flex w-full flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Microwave Link IP Information
+                </h2>
+              </div>
+
+              <div className="text-xs text-slate-600">
+                Showing{" "}
+                <span className="font-semibold text-slate-900">
+                  {total === 0 ? 0 : (page - 1) * pageSize + 1}
+                </span>
+                {" - "}
+                <span className="font-semibold text-slate-900">
+                  {total === 0 ? 0 : Math.min(page * pageSize, total)}
+                </span>
+                {" of "}
+                <span className="font-semibold text-slate-900">{total}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto bg-white px-2 py-2">
+            <AdminMicrowaveLinksTable
+              rows={rows}
+              onEdit={setEditingRow}
+              onDelete={handleDelete}
+              onView={setViewingRow}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+            />
+          </div>
+
+          <div className="border-t border-slate-200 bg-white px-3 py-2.5">
+            <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <span>Rows per page</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPage(1);
+                    setPageSize(Number(e.target.value));
+                  }}
+                  className={inputClass}
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span className="rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1.5">
+                  Page <span className="font-semibold text-slate-900">{page}</span> /{" "}
+                  <span className="font-semibold text-slate-900">
+                    {totalPages || 1}
+                  </span>
+                </span>
+
+                <button
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={page <= 1}
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+
+                <button
+                  onClick={() =>
+                    setPage((prev) => Math.min(prev + 1, totalPages || 1))
+                  }
+                  disabled={page >= totalPages}
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {toast && (
+        <div className="fixed right-3 top-3 z-[70]">
+          <div
+            className={`rounded-lg px-3 py-2 text-xs font-semibold shadow-lg ${
+              toast.type === "error"
+                ? "bg-red-600 text-white"
+                : "bg-slate-900 text-white"
+            }`}
           >
-            + Add Microwave Link
-          </button>
-        </div>
-      </div>
-
-      {error && <p style={{ color: "crimson", marginBottom: 16 }}>{error}</p>}
-      {saving && <p style={{ marginBottom: 16 }}>Saving...</p>}
-      {loading && <p style={{ marginBottom: 16 }}>Loading...</p>}
-
-      {showCreateForm && (
-        <div style={formCard}>
-          <div style={cardHeader}>
-            <h3 style={{ margin: 0 }}>Create Microwave Link</h3>
-          </div>
-
-          <div style={cardBody}>
-            <AdminMicrowaveLinkForm
-              initialData={null}
-              onSubmit={handleCreate}
-              onCancel={() => setShowCreateForm(false)}
-              submitLabel="Create Microwave Link"
-            />
+            {toast.message}
           </div>
         </div>
       )}
 
-      {editingRow && (
-        <div style={formCard}>
-          <div style={cardHeader}>
-            <h3 style={{ margin: 0 }}>Edit Microwave Link</h3>
-          </div>
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={handleCloseModal}
+          />
 
-          <div style={cardBody}>
-            <AdminMicrowaveLinkForm
-              initialData={editingRow}
-              onSubmit={handleUpdate}
-              onCancel={() => setEditingRow(null)}
-              submitLabel="Update Microwave Link"
-            />
+          <div className="relative z-10 max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {showCreateForm ? "Create Microwave Link" : "Edit Microwave Link"}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  {showCreateForm
+                    ? "Add a new microwave link record."
+                    : "Update microwave link details."}
+                </p>
+              </div>
+
+              <button onClick={handleCloseModal} className={modalBtnClass}>
+                ✕
+              </button>
+            </div>
+
+            <div className="max-h-[calc(92vh-76px)] overflow-y-auto px-4 py-4">
+              <AdminMicrowaveLinkForm
+                initialData={showCreateForm ? null : editingRow}
+                onSubmit={showCreateForm ? handleCreate : handleUpdate}
+                onCancel={handleCloseModal}
+                submitLabel={
+                  showCreateForm ? "Create Microwave Link" : "Update Microwave Link"
+                }
+              />
+            </div>
           </div>
         </div>
       )}
 
-      <div style={tableCard}>
-        <div style={cardHeader}>
-          <h3 style={{ margin: 0 }}>Microwave Link Table</h3>
-        </div>
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 md:p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={handleCancelDelete}
+          />
 
-        <div style={tableScroller}>
-          <AdminMicrowaveLinksTable rows={rows} onEdit={setEditingRow} />
-        </div>
+          <div className="relative z-10 w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-2xl">
+            <div className="border-b border-slate-200 px-4 py-3">
+              <h3 className="text-base font-bold text-slate-900">Confirm Delete</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Are you sure you want to delete this microwave link?
+              </p>
+            </div>
 
-        <div style={paginationWrap}>
-          <div>
-            <span style={{ marginRight: 8 }}>Rows per page:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPage(1);
-                setPageSize(Number(e.target.value));
-              }}
-              style={selectStyle}
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
+            <div className="space-y-4 px-4 py-3">
+              <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-700">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Link ID
+                </div>
+                <div className="mt-1 font-semibold text-slate-900">
+                  {deleteTarget.link_id}
+                </div>
+              </div>
+            </div>
 
-          <div style={paginationRight}>
-            <span>
-              {total === 0
-                ? "0"
-                : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}`}
-            </span>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button
+                onClick={handleCancelDelete}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
 
-            <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page <= 1}
-              style={pageBtn}
-            >
-              Previous
-            </button>
-
-            <span>
-              Page {page} / {totalPages || 1}
-            </span>
-
-            <button
-              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages || 1))}
-              disabled={page >= totalPages}
-              style={pageBtn}
-            >
-              Next
-            </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {viewingRow && (
+        <div className="fixed inset-0 z-40">
+          <div
+            className="absolute inset-0 bg-slate-900/30"
+            onClick={() => setViewingRow(null)}
+          />
+          <div className="absolute right-0 top-0 h-full w-full max-w-sm overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Link Details</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Detailed microwave link information
+                </p>
+              </div>
+              <button onClick={() => setViewingRow(null)} className={modalBtnClass}>
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5 p-4">
+              <DetailItem label="NE ID" value={viewingRow.ne_id} />
+              <DetailItem label="FE ID" value={viewingRow.fe_id} />
+              <DetailItem label="Link ID" value={viewingRow.link_id} />
+              <DetailItem label="Management IP" value={viewingRow.management_ip} />
+              <DetailItem label="Web Protocol" value={viewingRow.web_protocol} />
+              <DetailItem label="Link Class" value={viewingRow.link_class} />
+              <DetailItem label="Vendor" value={viewingRow.vendor} />
+              <DetailItem label="Model" value={viewingRow.model} />
+              <DetailItem label="Type" value={viewingRow.type} />
+              <DetailItem label="Status" value={viewingRow.status} />
+              <DetailItem
+                label="Active"
+                value={viewingRow.is_active ? "Active" : "Down"}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-const pageStyle = {
-  padding: 4,
-};
-
-const headerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 16,
-  flexWrap: "wrap",
-  marginBottom: 20,
-};
-
-const subText = {
-  fontSize: 13,
-  color: "#6b7280",
-  marginTop: 4,
-};
-
-const headerActions = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  flexWrap: "wrap",
-};
-
-const searchWrap = {
-  display: "flex",
-  gap: 8,
-  alignItems: "center",
-};
-
-const searchInputStyle = {
-  padding: "8px 10px",
-  borderRadius: 6,
-  border: "1px solid #d1d5db",
-  width: 260,
-  boxSizing: "border-box",
-};
-
-const searchBtn = {
-  padding: "8px 12px",
-  borderRadius: 6,
-  border: "none",
-  background: "#111827",
-  color: "#fff",
-  cursor: "pointer",
-};
-
-const primaryBtn = {
-  padding: "8px 12px",
-  borderRadius: 6,
-  border: "none",
-  background: "#2563eb",
-  color: "#fff",
-  cursor: "pointer",
-};
-
-const formCard = {
-  background: "#fff",
-  borderRadius: 10,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-  overflow: "hidden",
-  marginBottom: 20,
-};
-
-const tableCard = {
-  background: "#fff",
-  borderRadius: 10,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-  overflow: "hidden",
-};
-
-const cardHeader = {
-  padding: "16px 16px 8px 16px",
-};
-
-const cardBody = {
-  padding: "0 16px 16px 16px",
-};
-
-const tableScroller = {
-  overflowX: "auto",
-  maxHeight: "65vh",
-};
-
-const paginationWrap = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: 16,
-  borderTop: "1px solid #f1f5f9",
-  flexWrap: "wrap",
-  gap: 12,
-};
-
-const paginationRight = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-};
-
-const pageBtn = {
-  padding: "6px 10px",
-  borderRadius: 6,
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  cursor: "pointer",
-};
-
-const selectStyle = {
-  padding: "6px 8px",
-  borderRadius: 6,
-  border: "1px solid #d1d5db",
-};
+function DetailItem({ label, value }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 text-xs font-semibold text-slate-900">
+        {value || "-"}
+      </div>
+    </div>
+  );
+}
 
 export default AdminLinksPage;

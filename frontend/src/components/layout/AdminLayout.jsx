@@ -8,6 +8,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  LogOut,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -18,7 +19,7 @@ function AdminLayout() {
   const location = useLocation();
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 992);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 992);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
@@ -29,6 +30,8 @@ function AdminLayout() {
       if (mobile) {
         setIsSidebarOpen(false);
         setIsSidebarCollapsed(false);
+      } else {
+        setIsSidebarOpen(true);
       }
     };
 
@@ -59,10 +62,15 @@ function AdminLayout() {
     navigate("/admin");
   };
 
-  const sidebarWidth = !isSidebarOpen ? 0 : isSidebarCollapsed ? 84 : 250;
+  const sidebarWidthClass =
+    !isSidebarOpen || isMobile
+      ? "lg:ml-0"
+      : isSidebarCollapsed
+      ? "lg:ml-[84px]"
+      : "lg:ml-[260px]";
 
   return (
-    <div style={wrapperStyle}>
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-cyan-50 text-slate-800">
       <AdminSidebar
         isOpen={isSidebarOpen}
         isCollapsed={isSidebarCollapsed}
@@ -70,185 +78,82 @@ function AdminLayout() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      <div
-        style={{
-          ...mainAreaStyle,
-          marginLeft: isMobile ? 0 : sidebarWidth,
-        }}
-      >
-        <header style={topbarStyle}>
+      <div className={`min-h-screen transition-all duration-300 ${sidebarWidthClass}`}>
+        <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/90 backdrop-blur-md">
           <TopLoadingBar />
 
-          <div style={topbarLeftStyle}>
-            <button onClick={handleMenuClick} style={iconButtonStyle} title="Toggle sidebar">
-              <Menu size={18} />
-            </button>
-
-            {!isMobile && isSidebarOpen && (
+          <div className="flex h-12 items-center justify-between px-3 sm:px-5">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
-                onClick={toggleSidebarCollapse}
-                style={iconButtonStyle}
-                title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                onClick={handleMenuClick}
+                title="Toggle sidebar"
+                className="inline-flex h-8 w-8 items-center justify-center border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
               >
-                {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                <Menu size={16} />
               </button>
-            )}
 
-            <button style={brandButtonStyle} onClick={goAdminHome}>
-              <div style={brandIconWrap}>
-                <LayoutDashboard size={16} />
-              </div>
-              <div style={brandTextWrap}>
-                <span style={brandTitle}>Network Ops</span>
-                <span style={brandSub}>Admin Console</span>
-              </div>
-            </button>
-          </div>
+              {!isMobile && isSidebarOpen && (
+                <button
+                  onClick={toggleSidebarCollapse}
+                  title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  className="inline-flex h-8 w-8 items-center justify-center border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
+                >
+                  {isSidebarCollapsed ? (
+                    <PanelLeftOpen size={16} />
+                  ) : (
+                    <PanelLeftClose size={16} />
+                  )}
+                </button>
+              )}
 
-          <div style={topbarRightStyle}>
-            <div style={userBadgeStyle}>
-              <span style={userNameStyle}>{user?.username || "Admin"}</span>
-              <span style={userRoleStyle}>{user?.role || ""}</span>
+              <button
+                onClick={goAdminHome}
+                className="flex items-center gap-2 px-1 py-1 transition hover:text-sky-700"
+              >
+                <div className="flex h-8 w-8 items-center justify-center bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-sm">
+                  <LayoutDashboard size={15} />
+                </div>
+
+                <div className="hidden sm:flex flex-col items-start leading-tight">
+                  <span className="text-sm font-semibold text-sky-950">
+                    Network Ops
+                  </span>
+                  <span className="text-[11px] text-sky-600">
+                    Admin Console
+                  </span>
+                </div>
+              </button>
             </div>
 
-            <button onClick={handleLogout} style={logoutBtnStyle}>
-              Logout
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex flex-col items-end leading-tight">
+                <span className="text-xs font-semibold text-slate-800">
+                  {user?.username || "Admin"}
+                </span>
+                <span className="text-[11px] capitalize text-sky-600">
+                  {user?.role || ""}
+                </span>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="inline-flex h-8 items-center gap-1.5 border border-sky-200 bg-white px-2.5 text-xs font-medium text-sky-700 transition hover:bg-sky-50"
+              >
+                <LogOut size={14} />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
           </div>
         </header>
 
-        <main style={contentStyle}>
-          <Outlet />
+        <main className="p-4 sm:p-6 lg:p-8">
+          <div className="min-h-[calc(100vh-80px)] border border-sky-100 bg-white/90 p-4 shadow-sm sm:p-6">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
   );
 }
-
-const wrapperStyle = {
-  minHeight: "100vh",
-  background: "#f3f4f6",
-};
-
-const mainAreaStyle = {
-  minHeight: "100vh",
-  display: "flex",
-  flexDirection: "column",
-  transition: "margin-left 0.25s ease",
-};
-
-const topbarStyle = {
-  position: "sticky",
-  top: 0,
-  height: 64,
-  background: "rgba(255,255,255,0.92)",
-  borderBottom: "1px solid #e5e7eb",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: "0 20px",
-  zIndex: 1000,
-  backdropFilter: "blur(10px)",
-  boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
-};
-
-const topbarLeftStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-};
-
-const topbarRightStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-};
-
-const brandButtonStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
-  padding: 0,
-};
-
-const brandIconWrap = {
-  width: 34,
-  height: 34,
-  borderRadius: 10,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "linear-gradient(135deg, #2563eb, #0ea5e9)",
-  color: "#fff",
-  boxShadow: "0 4px 14px rgba(37,99,235,0.22)",
-};
-
-const brandTextWrap = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-start",
-};
-
-const brandTitle = {
-  fontSize: 15,
-  fontWeight: 700,
-  color: "#111827",
-  lineHeight: 1.1,
-};
-
-const brandSub = {
-  fontSize: 11,
-  color: "#6b7280",
-  lineHeight: 1.1,
-};
-
-const contentStyle = {
-  padding: 24,
-};
-
-const iconButtonStyle = {
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  borderRadius: 10,
-  padding: 8,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const userBadgeStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-end",
-  padding: "6px 10px",
-  borderRadius: 10,
-  background: "#f8fafc",
-};
-
-const userNameStyle = {
-  fontSize: 13,
-  fontWeight: 600,
-  color: "#111827",
-};
-
-const userRoleStyle = {
-  fontSize: 11,
-  color: "#6b7280",
-  textTransform: "capitalize",
-};
-
-const logoutBtnStyle = {
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#111827",
-  cursor: "pointer",
-  fontSize: 13,
-};
 
 export default AdminLayout;
