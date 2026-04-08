@@ -20,15 +20,10 @@ import AdminPagesPage from "../pages/admin/AdminPagesPage";
 import AdminNavigationPage from "../pages/admin/AdminNavigationPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminAuditLogsPage from "../pages/admin/AdminAuditLogsPage";
-
-import SiteSearchPage from "../pages/client/SiteSearchPage";
-import SiteDetailPage from "../pages/client/SiteDetailPage";
-import ClientLinkStatusPage from "../pages/client/ClientLinkStatusPage";
 import AdminClientPageBuilder from "../pages/admin/AdminClientPageBuilder";
+
 import ClientDynamicPage from "../pages/client/ClientDynamicPage";
 import ClientLayout from "../components/layout/ClientLayout";
-
-
 
 const router = createBrowserRouter([
   {
@@ -53,12 +48,8 @@ const router = createBrowserRouter([
       { path: "links", element: <AdminLinksPage /> },
       { path: "topology", element: <AdminTopologyPage /> },
       { path: "link-budget", element: <AdminLinkBudgetPage /> },
-
-      // new isolated page for the microwave_link_budgets table
       { path: "microwave-link-budgets", element: <AdminMicrowaveLinkBudgetPage /> },
-
       { path: "client-pages", element: <AdminClientPageBuilder /> },
-
       { path: "link-status", element: <AdminLinkStatusPage /> },
       { path: "ping", element: <AdminPingPage /> },
       { path: "imports", element: <AdminImportCenterPage /> },
@@ -70,33 +61,21 @@ const router = createBrowserRouter([
     ],
   },
 
- {
-  path: "/client",
-  element: (
-    <ProtectedRoute allowedRoles={["admin", "client"]}>
-      <ClientLayout />
-    </ProtectedRoute>
-  ),
-  children: [
-    { index: true, element: <SiteSearchPage /> },
-    { path: "sites/:id", element: <SiteDetailPage /> },
-    { path: "link-status", element: <ClientLinkStatusPage /> },
-    { path: "pages/:slug", element: <ClientDynamicPage /> },
-  ],
-  },
   {
-    path: "/client/sites/:id",
+    path: "/client",
     element: (
       <ProtectedRoute allowedRoles={["admin", "client"]}>
-        <SiteDetailPage />
+        <ClientLayout />
       </ProtectedRoute>
     ),
+    children: [{ path: "pages/:slug", element: <ClientDynamicPage /> }],
   },
+
   {
-    path: "/client/link-status",
+    path: "/client/pages/:slug",
     element: (
       <ProtectedRoute allowedRoles={["admin", "client"]}>
-        <ClientLinkStatusPage />
+        <ClientDynamicPage />
       </ProtectedRoute>
     ),
   },
@@ -104,14 +83,6 @@ const router = createBrowserRouter([
   {
     path: "*",
     element: <LoginPage />,
-  },
-  {
-  path: "/client/pages/:slug",
-  element: (
-    <ProtectedRoute allowedRoles={["admin", "client"]}>
-      <ClientDynamicPage />
-    </ProtectedRoute>
-  ),
   },
 ]);
 
