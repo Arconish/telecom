@@ -115,6 +115,24 @@ function ClientTopNav() {
           <button
             onClick={handleLogout}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-sky-200 bg-white px-2.5 text-xs font-medium text-sky-700 transition hover:bg-sky-50"
+    <div className="border-b border-slate-200 bg-white">
+      <div className="flex w-full items-center gap-2 overflow-x-auto px-3 py-2">
+        {loading && (
+          <div className="px-2 text-xs text-slate-400">Loading pages...</div>
+        )}
+
+        {items.map((item) => (
+          <NavLink
+            key={item.id}
+            to={item.path}
+            className={({ isActive }) =>
+              [
+                "whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition",
+                isActive
+                  ? "bg-sky-600 text-white"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+              ].join(" ")
+            }
           >
             <LogOut size={14} />
             <span className="hidden sm:inline">Logout</span>
