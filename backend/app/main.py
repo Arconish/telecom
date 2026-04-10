@@ -1,15 +1,24 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import settings
 from app.core.database import Base, engine
 from app.db import base  # noqa: F401
-from app.routers import auth, sites, tools, microwave_links, microwave_link_imports, microwave_link_budgets, client_pages
+from app.routers import (
+    auth,
+    sites,
+    tools,
+    microwave_links,
+    microwave_link_imports,
+    microwave_link_budgets,
+    client_pages,
+)
 
 app = FastAPI(title="Network Ops Dashboard API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,4 +37,12 @@ app.include_router(client_pages.router)
 
 @app.get("/")
 def root():
-    return {"message": "Network Ops Dashboard backend is running"}
+    return {
+        "message": "Network Ops Dashboard backend is running",
+        "environment": settings.app_env,
+    }
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "environment": settings.app_env}

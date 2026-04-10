@@ -1,63 +1,99 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { getMeApi, loginApi } from "../api/authApi";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import api from "../api/axios";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
   const [loading, setLoading] = useState(true);
 
-  const login = async (username, password) => {
-    const data = await loginApi(username, password);
-    localStorage.setItem("access_token", data.access_token);
-
-    const me = await getMeApi();
-    localStorage.setItem("user", JSON.stringify(me));
-    setUser(me);
-    return me;
-  };
-
-  const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
-    setUser(null);
-  };
-
   useEffect(() => {
-    const bootstrap = async () => {
+    const initializeAuth = async () => {
       const token = localStorage.getItem("access_token");
-      const cachedUser = localStorage.getItem("user");
 
       if (!token) {
         setLoading(false);
         return;
       }
 
-      if (cachedUser) {
-        setUser(JSON.parse(cachedUser));
-      }
-
       try {
-        const me = await getMeApi();
-        localStorage.setItem("user", JSON.stringify(me));
-        setUser(me);
+        const response = await api.get("/auth/me");
+        setUser(response.data);
+        localStorage.setItem("user", JSON.stringify(response.data));
       } catch (error) {
-        logout();
+        console.error("Init auth failed:", error?.response?.data || error);
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("token_type");
+        localStorage.removeItem("user");
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
 
-    bootstrap();
+    initializeAuth();
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user }}>
-      {children}
-    </AuthContext.Provider>
+  const login = async (username, password) => {
+    const formData = new URLSearchParams();
+    formData.append("username", username);
+    formData.append("password", password);
+
+    const tokenResponse = await api.post("/auth/login", formData, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const tokenData = tokenResponse.data;
+
+    if (!tokenData?.access_token) {
+      throw new Error("No access token returned from server");
+    }
+
+    localStorage.setItem("access_token", tokenData.access_token);
+    localStorage.setItem("token_type", tokenData.token_type || "bearer");
+
+    const meResponse = await api.get("/auth/me");
+    const currentUser = meResponse.data;
+
+    setUser(currentUser);
+    localStorage.setItem("user", JSON.stringify(currentUser));
+
+    return currentUser;
+  };
+
+  const logout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("token_type");
+    localStorage.removeItem("user");
+    setUser(null);
+  };
+
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      login,
+      logout,
+      isAuthenticated: !!user,
+    }),
+    [user, loading]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+
+  return context;
 }

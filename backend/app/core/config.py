@@ -1,26 +1,44 @@
 import os
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-load_dotenv()
+app_env = os.getenv("APP_ENV", "development")
 
-class Settings:
-    APP_NAME: str = "Network Ops Dashboard"
 
-    DB_HOST: str = os.getenv("DB_HOST", "localhost")
-    DB_PORT: str = os.getenv("DB_PORT", "5432")
-    DB_NAME: str = os.getenv("DB_NAME", "network_ops_db")
-    DB_USER: str = os.getenv("DB_USER", "postgres")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "postgres")
+class Settings(BaseSettings):
+    app_env: str = "development"
+    app_debug: bool = True
 
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "change-this-secret-key")
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = "network_ops_db"
+    db_user: str = "postgres"
+    db_password: str = ""
+    database_url: str = ""
+
+    secret_key: str = ""
+    access_token_expire_minutes: int = 60
+
+    frontend_url: str = "http://localhost:5173"
+    backend_url: str = "http://localhost:8000"
+    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    model_config = SettingsConfigDict(
+        env_file=".env.production" if app_env == "production" else ".env.development",
+        extra="ignore",
+    )
 
     @property
-    def database_url(self) -> str:
+    def cors_origins(self):
+        return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]
+
+    @property
+    def resolved_database_url(self):
+        if self.database_url:
+            return self.database_url
         return (
-            f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}"
-            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+            f"postgresql://{self.db_user}:{self.db_password}"
+            f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
+
 
 settings = Settings()

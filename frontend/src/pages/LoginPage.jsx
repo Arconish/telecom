@@ -75,6 +75,9 @@ function LoginPage() {
         navigate("/client");
       }
     } catch (err) {
+      console.error("Login error:", err);
+      console.error("Login response:", err?.response?.data);
+
       const detail = err?.response?.data?.detail;
       setError(formatError(detail));
     } finally {
@@ -86,7 +89,6 @@ function LoginPage() {
     <div className="min-h-screen overflow-hidden bg-[#dbeefe]">
       <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-6 py-3 lg:py-4">
         <div className="grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.2fr_420px] xl:gap-12">
-          {/* Left side: stronger earth/network visual */}
           <div className="relative hidden h-[430px] lg:block">
             <div className="absolute inset-0 rounded-[40px] bg-[radial-gradient(circle_at_20%_20%,_rgba(56,189,248,0.18),_transparent_24%),radial-gradient(circle_at_80%_28%,_rgba(59,130,246,0.14),_transparent_22%),radial-gradient(circle_at_50%_90%,_rgba(14,165,233,0.10),_transparent_28%)]" />
 
@@ -124,7 +126,6 @@ function LoginPage() {
                 </clipPath>
               </defs>
 
-              {/* horizon line */}
               <path
                 d="M70 320 C 180 210, 680 210, 790 320"
                 stroke="url(#horizonStrong)"
@@ -132,13 +133,11 @@ function LoginPage() {
                 strokeLinecap="round"
               />
 
-              {/* earth body */}
               <path
                 d="M70 320 C 180 210, 680 210, 790 320 L 790 430 L 70 430 Z"
                 fill="url(#earthFillStrong)"
               />
 
-              {/* earth grid */}
               <g clipPath="url(#earthClipStrong)" opacity="0.68">
                 <path d="M120 410 C 220 285, 640 285, 740 410" stroke="#b3e9ff" strokeWidth="1.6" opacity="0.35" />
                 <path d="M150 390 C 245 295, 615 295, 710 390" stroke="#b3e9ff" strokeWidth="1.6" opacity="0.35" />
@@ -152,7 +151,6 @@ function LoginPage() {
                 <path d="M580 260 C 550 320, 540 372, 540 430" stroke="#c9f2ff" strokeWidth="1.2" opacity="0.22" />
               </g>
 
-              {/* continents */}
               <g clipPath="url(#earthClipStrong)">
                 <path
                   d="M180 330 C 220 280, 300 270, 350 300 C 320 340, 280 360, 215 355 C 195 350, 185 342, 180 330 Z"
@@ -176,7 +174,6 @@ function LoginPage() {
                 />
               </g>
 
-              {/* routes */}
               <path
                 d="M185 330 C 260 268, 365 252, 470 285"
                 stroke="#8ce8ff"
@@ -220,7 +217,6 @@ function LoginPage() {
                 opacity="0.72"
               />
 
-              {/* route pulses */}
               <circle r="4.8" fill="#67e8f9" filter="url(#nodeGlowStrong)">
                 <animateMotion
                   dur="4.8s"
@@ -256,7 +252,6 @@ function LoginPage() {
                 />
               </circle>
 
-              {/* towers and nodes */}
               <TowerNode x={185} y={330} />
               <NetworkNode x={245} y={350} />
               <TowerNode x={350} y={300} />
@@ -267,7 +262,6 @@ function LoginPage() {
               <NetworkNode x={720} y={326} />
               <TowerNode x={610} y={350} />
 
-              {/* stars */}
               <circle cx="120" cy="90" r="2.2" fill="#e0f7ff" opacity="0.9" />
               <circle cx="250" cy="60" r="2.6" fill="#7dd3fc" opacity="0.75" />
               <circle cx="690" cy="80" r="2.1" fill="#e0f7ff" opacity="0.85" />
@@ -276,7 +270,6 @@ function LoginPage() {
             </svg>
           </div>
 
-          {/* Right side */}
           <div className="flex min-h-[430px] items-center justify-center">
             <div className="w-full max-w-[400px] rounded-3xl border border-sky-200 bg-white p-8 shadow-[0_18px_48px_rgba(14,116,144,0.10)]">
               <div className="mb-8 text-center">
@@ -285,7 +278,7 @@ function LoginPage() {
                 </div>
 
                 <h1 className="text-2xl font-bold tracking-tight text-slate-800">
-                  Microwave NMS Login
+                  Network Monitoring System
                 </h1>
 
                 <p className="mt-2 text-sm text-slate-500">

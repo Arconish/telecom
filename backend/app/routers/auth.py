@@ -4,7 +4,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import verify_password, create_access_token, decode_token, get_password_hash
+from app.core.security import (
+    verify_password,
+    create_access_token,
+    decode_token,
+    get_password_hash,
+)
 from app.models.user import User
 from app.schemas.auth import Token
 from app.schemas.user import UserCreate, UserOut
@@ -42,7 +47,10 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     user = db.execute(
         select(User).where(User.username == form_data.username)
     ).scalar_one_or_none()
@@ -57,6 +65,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=403, detail="Inactive user")
 
     access_token = create_access_token(subject=user.username, role=user.role)
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
