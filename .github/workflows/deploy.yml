@@ -1,0 +1,135 @@
+name: Deploy MVP
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: mvp
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_APP_MVP_ROLE_ARN: ${{ vars.AWS_APP_MVP_ROLE_ARN }}
+      DEPLOY_BUCKET_NAME: ${{ vars.DEPLOY_BUCKET_NAME }}
+      DEPLOY_PREFIX: ${{ vars.DEPLOY_PREFIX }}
+      DEPLOY_INSTANCE_ID: ${{ vars.DEPLOY_INSTANCE_ID }}
+      APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_APP_MVP_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Prepare release bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "bundle/${GITHUB_SHA}"
+
+          cp -r frontend/dist "bundle/${GITHUB_SHA}/frontend"
+          cp -r backend "bundle/${GITHUB_SHA}/backend"
+          cp start.sh "bundle/${GITHUB_SHA}/start.sh"
+
+          tar -czf "release-${GITHUB_SHA}.tar.gz" -C bundle "${GITHUB_SHA}"
+
+      - name: Upload release artifact and deploy script to S3
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_KEY="${DEPLOY_PREFIX}/${GITHUB_SHA}/release.tar.gz"
+          SCRIPT_KEY="${DEPLOY_PREFIX}/${GITHUB_SHA}/deploy.sh"
+
+          aws s3 cp "release-${GITHUB_SHA}.tar.gz" "s3://${DEPLOY_BUCKET_NAME}/${ARTIFACT_KEY}"
+          aws s3 cp "deploy.sh" "s3://${DEPLOY_BUCKET_NAME}/${SCRIPT_KEY}"
+
+          echo "ARTIFACT_KEY=${ARTIFACT_KEY}" >> "$GITHUB_ENV"
+          echo "SCRIPT_KEY=${SCRIPT_KEY}" >> "$GITHUB_ENV"
+
+      - name: Trigger deploy on EC2 with SSM
+        id: ssm
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          COMMAND_ID=$(
+            aws ssm send-command \
+              --instance-ids "${DEPLOY_INSTANCE_ID}" \
+              --document-name "AWS-RunShellScript" \
+              --comment "Deploy ${GITHUB_SHA} to MVP EC2 host" \
+              --parameters 'commands=[
+                "set -euo pipefail",
+                "aws s3 cp s3://'${DEPLOY_BUCKET_NAME}'/'${SCRIPT_KEY}' /tmp/deploy.sh",
+                "chmod +x /tmp/deploy.sh",
+                "S3_BUCKET='${DEPLOY_BUCKET_NAME}' S3_KEY='${ARTIFACT_KEY}' GITHUB_SHA='${GITHUB_SHA}' bash /tmp/deploy.sh"
+              ]' \
+              --query "Command.CommandId" \
+              --output text
+          )
+
+          echo "COMMAND_ID=${COMMAND_ID}" >> "$GITHUB_ENV"
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for SSM command
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aws ssm wait command-executed \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${DEPLOY_INSTANCE_ID}"
+
+      - name: Fetch SSM result
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aws ssm get-command-invocation \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${DEPLOY_INSTANCE_ID}" \
+            --output json > ssm-result.json
+
+          cat ssm-result.json
+
+      - name: Write workflow summary
+        shell: bash
+        run: |
+          {
+            echo "## MVP Deploy Summary"
+            echo ""
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Domain: \`${APP_DOMAIN}\`"
+            echo "- Bucket: \`${DEPLOY_BUCKET_NAME}\`"
+            echo "- Artifact key: \`${ARTIFACT_KEY}\`"
+            echo "- EC2 instance: \`${DEPLOY_INSTANCE_ID}\`"
+            echo "- SSM command: \`${COMMAND_ID}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
