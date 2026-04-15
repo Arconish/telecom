@@ -1,16 +1,72 @@
-# React + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This folder contains the React frontend for the network monitoring dashboard.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React
+- Vite
+- Axios for API access
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Install dependencies:
 
-## Expanding the ESLint configuration
+```bash
+cd frontend
+npm ci
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Run the dev server:
+
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Preview the production build locally:
+
+```bash
+npm run preview
+```
+
+## API Configuration
+
+The frontend API client is defined in `src/api/axios.js`.
+
+It uses:
+
+- `VITE_API_BASE_URL` when set
+- otherwise `http://127.0.0.1:8000`
+
+For local development that usually means:
+
+- frontend on `http://localhost:5173`
+- backend on `http://127.0.0.1:8000`
+
+For MVP production, Nginx serves the frontend and reverse proxies `/api` on the same host/domain. When running behind same-domain Nginx, prefer a relative API base URL if you later simplify this configuration further.
+
+## Auth Behavior
+
+The frontend stores the access token in browser storage and sends it as:
+
+```text
+Authorization: Bearer <token>
+```
+
+Requests are handled through Axios interceptors in `src/api/axios.js`.
+
+## Production Behavior
+
+In the MVP deployment:
+
+- GitHub Actions builds `frontend/dist`
+- `deploy.sh` copies the built files into `/var/www/app`
+- Nginx serves those files on `/`
+
+The frontend is not deployed independently from the backend in the current MVP flow. A release bundle always includes both.
