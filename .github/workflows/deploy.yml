@@ -81,17 +81,17 @@ jobs:
         run: |
           set -euo pipefail
 
+          PARAMETERS=$(cat <<EOF
+          {"commands":["#!/bin/bash","set -euo pipefail","aws s3 cp s3://${DEPLOY_BUCKET_NAME}/${SCRIPT_KEY} /tmp/deploy.sh","chmod +x /tmp/deploy.sh","S3_BUCKET='${DEPLOY_BUCKET_NAME}' S3_KEY='${ARTIFACT_KEY}' GITHUB_SHA='${GITHUB_SHA}' bash /tmp/deploy.sh"]}
+          EOF
+          )
+
           COMMAND_ID=$(
             aws ssm send-command \
               --instance-ids "${DEPLOY_INSTANCE_ID}" \
               --document-name "AWS-RunShellScript" \
               --comment "Deploy ${GITHUB_SHA} to MVP EC2 host" \
-              --parameters 'commands=[
-                "set -euo pipefail",
-                "aws s3 cp s3://'${DEPLOY_BUCKET_NAME}'/'${SCRIPT_KEY}' /tmp/deploy.sh",
-                "chmod +x /tmp/deploy.sh",
-                "S3_BUCKET='${DEPLOY_BUCKET_NAME}' S3_KEY='${ARTIFACT_KEY}' GITHUB_SHA='${GITHUB_SHA}' bash /tmp/deploy.sh"
-              ]' \
+              --parameters "${PARAMETERS}" \
               --query "Command.CommandId" \
               --output text
           )
@@ -100,6 +100,8 @@ jobs:
           echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for SSM command
+        id: ssm_wait
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -109,6 +111,7 @@ jobs:
             --instance-id "${DEPLOY_INSTANCE_ID}"
 
       - name: Fetch SSM result
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -119,6 +122,13 @@ jobs:
             --output json > ssm-result.json
 
           cat ssm-result.json
+
+      - name: Fail if SSM waiter failed
+        if: steps.ssm_wait.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "SSM command did not complete successfully." >&2
+          exit 1
 
       - name: Write workflow summary
         shell: bash
