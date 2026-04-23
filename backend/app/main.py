@@ -13,6 +13,8 @@ from app.routers import (
     link_level,
 )
 
+API_PREFIX = "/api"
+
 app = FastAPI(title="Network Ops Dashboard API")
 
 app.add_middleware(
@@ -25,15 +27,16 @@ app.add_middleware(
 
 Base.metadata.create_all(bind=engine)
 
-app.include_router(auth.router)
-app.include_router(tools.router)
-app.include_router(microwave_link_budgets.router)
-app.include_router(client_pages.router)
-app.include_router(site_connectivity.router)
-app.include_router(link_level.router)
+app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(tools.router, prefix=API_PREFIX)
+app.include_router(microwave_link_budgets.router, prefix=API_PREFIX)
+app.include_router(client_pages.router, prefix=API_PREFIX)
+app.include_router(site_connectivity.router, prefix=API_PREFIX)
+app.include_router(link_level.router, prefix=API_PREFIX)
 
 
 @app.get("/")
+@app.get(API_PREFIX)
 def root():
     return {
         "message": "Network Ops Dashboard backend is running",
@@ -42,5 +45,6 @@ def root():
 
 
 @app.get("/health")
+@app.get(f"{API_PREFIX}/health")
 def health():
     return {"status": "ok", "environment": settings.app_env}
