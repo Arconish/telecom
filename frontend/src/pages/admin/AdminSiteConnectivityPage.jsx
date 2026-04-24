@@ -1007,18 +1007,6 @@ function AdminSiteConnectivityPage() {
                 { key: "child_site_connectivity", label: "Child Site Connectivity" },
                 { key: "child_site_name", label: "Child Site Name" },
                 { key: "is_active", label: "Active" },
-                { key: "budget_vendor", label: "Vendor" },
-                { key: "budget_site_name_s1", label: "Site Name S1" },
-                { key: "budget_site_name_s2", label: "Site Name S2" },
-                { key: "budget_revise", label: "Revise" },
-                { key: "budget_status", label: "Status" },
-                { key: "budget_protocol", label: "Protocol" },
-                { key: "budget_model", label: "Model" },
-                { key: "budget_bandwidth", label: "Bandwidth" },
-                { key: "budget_site_name_s1_ip", label: "Site S1 IP" },
-                { key: "budget_site_name_s2_ip", label: "Site S2 IP" },
-                { key: "budget_site_name_s1_port", label: "Site S1 Port" },
-                { key: "budget_site_name_s2_port", label: "Site S2 Port" },
               ].map((column) => (
                 <DetailItem
                   key={column.key}

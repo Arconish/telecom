@@ -8,11 +8,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook, load_workbook
 from sqlalchemy import asc, desc, func, or_
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.site_connectivity import SiteConnectivity
-from app.models.microwave_link_budget import MicrowaveLinkBudget
 from app.models.user import User
 from app.routers.auth import require_admin
 from app.utils.audit import create_audit_log, model_to_audit_dict
@@ -68,19 +67,7 @@ def clean_int(value: Any) -> int | None:
         return None
 
 
-def get_attr(obj: Any, *names: str) -> Any:
-    if obj is None:
-        return None
-    for name in names:
-        if hasattr(obj, name):
-            return getattr(obj, name)
-    return None
-
-
-def serialize_row(
-    site_item: SiteConnectivity,
-    budget_item: MicrowaveLinkBudget | None,
-) -> dict[str, Any]:
+def serialize_row(site_item: SiteConnectivity) -> dict[str, Any]:
     return {
         "id": site_item.id,
         "sitea_id": site_item.sitea_id,
@@ -95,27 +82,6 @@ def serialize_row(
         "is_active": site_item.is_active,
         "created_at": site_item.created_at.isoformat() if site_item.created_at else None,
         "updated_at": site_item.updated_at.isoformat() if site_item.updated_at else None,
-        "budget_vendor": get_attr(budget_item, "vendor"),
-        "budget_site_name_s1": get_attr(budget_item, "site_name_s1"),
-        "budget_site_name_s2": get_attr(budget_item, "site_name_s2"),
-        "budget_region": get_attr(budget_item, "region", "state_province"),
-        "budget_township": get_attr(budget_item, "township"),
-        "budget_zone": get_attr(budget_item, "zone"),
-        "budget_ring_id_span_name": get_attr(budget_item, "ring_id_span_name"),
-        "budget_media_type": get_attr(budget_item, "media_type"),
-        "budget_revise": get_attr(budget_item, "revise"),
-        "budget_site_name_s1_ip": get_attr(budget_item, "site_name_s1_ip"),
-        "budget_site_name_s2_ip": get_attr(budget_item, "site_name_s2_ip"),
-        "budget_site_name_s1_port": get_attr(budget_item, "site_name_s1_port"),
-        "budget_site_name_s2_port": get_attr(budget_item, "site_name_s2_port"),
-        "budget_link_class": get_attr(budget_item, "link_class"),
-        "budget_model": get_attr(budget_item, "model"),
-        "budget_status": get_attr(budget_item, "status"),
-        "budget_protocol": get_attr(budget_item, "protocol"),
-        "budget_comment": get_attr(budget_item, "comment"),
-        "budget_type": get_attr(budget_item, "type"),
-        "budget_bandwidth": get_attr(budget_item, "bandwidth"),
-        "budget_planning_capacity": get_attr(budget_item, "planning_capacity"),
     }
 
 
@@ -124,18 +90,7 @@ def build_base_query(
     search: str = "",
     category: str = "",
 ):
-    budget_alias = aliased(MicrowaveLinkBudget)
-
-    query = (
-        db.query(SiteConnectivity, budget_alias)
-        .outerjoin(
-            budget_alias,
-            or_(
-                SiteConnectivity.link_id == budget_alias.link_id,
-                SiteConnectivity.link_id == budget_alias.revise,
-            ),
-        )
-    )
+    query = db.query(SiteConnectivity)
 
     if search:
         like = f"%{search.strip()}%"
@@ -149,21 +104,13 @@ def build_base_query(
                 SiteConnectivity.pop_site.ilike(like),
                 SiteConnectivity.child_site_connectivity.ilike(like),
                 SiteConnectivity.child_site_name.ilike(like),
-                budget_alias.vendor.ilike(like),
-                budget_alias.site_name_s1.ilike(like),
-                budget_alias.site_name_s2.ilike(like),
-                budget_alias.site_name_s1_ip.ilike(like),
-                budget_alias.site_name_s2_ip.ilike(like),
-                budget_alias.model.ilike(like),
-                budget_alias.status.ilike(like),
-                budget_alias.protocol.ilike(like),
             )
         )
 
     if category and category.strip().lower() != "all":
         query = query.filter(SiteConnectivity.category_ne == category.strip())
 
-    return query, budget_alias
+    return query
 
 
 @router.get("/category-options")
@@ -233,46 +180,8 @@ def list_site_connectivity(
     sort_order: str = Query(default="desc"),
     db: Session = Depends(get_db),
 ):
-    query, budget_alias = build_base_query(db, search, category)
-
-    total_query = (
-        db.query(SiteConnectivity)
-        .outerjoin(
-            budget_alias,
-            or_(
-                SiteConnectivity.link_id == budget_alias.link_id,
-                SiteConnectivity.link_id == budget_alias.revise,
-            ),
-        )
-    )
-
-    if search:
-        like = f"%{search.strip()}%"
-        total_query = total_query.filter(
-            or_(
-                SiteConnectivity.sitea_id.ilike(like),
-                SiteConnectivity.siteb_id.ilike(like),
-                SiteConnectivity.link_id.ilike(like),
-                SiteConnectivity.category_ne.ilike(like),
-                SiteConnectivity.dependency.ilike(like),
-                SiteConnectivity.pop_site.ilike(like),
-                SiteConnectivity.child_site_connectivity.ilike(like),
-                SiteConnectivity.child_site_name.ilike(like),
-                budget_alias.vendor.ilike(like),
-                budget_alias.site_name_s1.ilike(like),
-                budget_alias.site_name_s2.ilike(like),
-                budget_alias.site_name_s1_ip.ilike(like),
-                budget_alias.site_name_s2_ip.ilike(like),
-                budget_alias.model.ilike(like),
-                budget_alias.status.ilike(like),
-                budget_alias.protocol.ilike(like),
-            )
-        )
-
-    if category and category.strip().lower() != "all":
-        total_query = total_query.filter(SiteConnectivity.category_ne == category.strip())
-
-    total = total_query.with_entities(func.count(func.distinct(SiteConnectivity.id))).scalar() or 0
+    query = build_base_query(db, search, category)
+    total = query.with_entities(func.count(SiteConnectivity.id)).scalar() or 0
 
     sort_column = ALLOWED_SORT_FIELDS.get(sort_by, SiteConnectivity.id)
     ordering = desc(sort_column) if sort_order.lower() == "desc" else asc(sort_column)
@@ -284,7 +193,7 @@ def list_site_connectivity(
         .all()
     )
 
-    items = [serialize_row(site_item, budget_item) for site_item, budget_item in rows]
+    items = [serialize_row(site_item) for site_item in rows]
 
     return {
         "items": items,
@@ -553,7 +462,7 @@ def export_site_connectivity_excel(
     category: str = Query(default=""),
     db: Session = Depends(get_db),
 ):
-    query, _ = build_base_query(db, search, category)
+    query = build_base_query(db, search, category)
     rows = query.order_by(desc(SiteConnectivity.id)).all()
 
     workbook = Workbook()
@@ -572,24 +481,11 @@ def export_site_connectivity_excel(
         "Child Site connectivity",
         "Child Site Name",
         "Active",
-        "Vendor",
-        "Site Name S1",
-        "Site Name S2",
-        "Revise",
-        "Protocol",
-        "Status",
-        "Model",
-        "Bandwidth",
-        "Planning Capacity",
-        "Site S1 IP",
-        "Site S2 IP",
-        "Site S1 Port",
-        "Site S2 Port",
     ]
     sheet.append(headers)
 
-    for site_item, budget_item in rows:
-        row = serialize_row(site_item, budget_item)
+    for site_item in rows:
+        row = serialize_row(site_item)
         sheet.append(
             [
                 row["id"],
@@ -603,19 +499,6 @@ def export_site_connectivity_excel(
                 row["child_site_connectivity"],
                 row["child_site_name"],
                 "Active" if row["is_active"] else "Inactive",
-                row["budget_vendor"],
-                row["budget_site_name_s1"],
-                row["budget_site_name_s2"],
-                row["budget_revise"],
-                row["budget_protocol"],
-                row["budget_status"],
-                row["budget_model"],
-                row["budget_bandwidth"],
-                row["budget_planning_capacity"],
-                row["budget_site_name_s1_ip"],
-                row["budget_site_name_s2_ip"],
-                row["budget_site_name_s1_port"],
-                row["budget_site_name_s2_port"],
             ]
         )
 
@@ -639,17 +522,8 @@ def export_selected_site_connectivity_excel(
     if not ids:
         raise HTTPException(status_code=400, detail="No selected IDs provided")
 
-    budget_alias = aliased(MicrowaveLinkBudget)
-
     rows = (
-        db.query(SiteConnectivity, budget_alias)
-        .outerjoin(
-            budget_alias,
-            or_(
-                SiteConnectivity.link_id == budget_alias.link_id,
-                SiteConnectivity.link_id == budget_alias.revise,
-            ),
-        )
+        db.query(SiteConnectivity)
         .filter(SiteConnectivity.id.in_(ids))
         .order_by(desc(SiteConnectivity.id))
         .all()
@@ -671,24 +545,11 @@ def export_selected_site_connectivity_excel(
         "Child Site connectivity",
         "Child Site Name",
         "Active",
-        "Vendor",
-        "Site Name S1",
-        "Site Name S2",
-        "Revise",
-        "Protocol",
-        "Status",
-        "Model",
-        "Bandwidth",
-        "Planning Capacity",
-        "Site S1 IP",
-        "Site S2 IP",
-        "Site S1 Port",
-        "Site S2 Port",
     ]
     sheet.append(headers)
 
-    for site_item, budget_item in rows:
-        row = serialize_row(site_item, budget_item)
+    for site_item in rows:
+        row = serialize_row(site_item)
         sheet.append(
             [
                 row["id"],
@@ -702,19 +563,6 @@ def export_selected_site_connectivity_excel(
                 row["child_site_connectivity"],
                 row["child_site_name"],
                 "Active" if row["is_active"] else "Inactive",
-                row["budget_vendor"],
-                row["budget_site_name_s1"],
-                row["budget_site_name_s2"],
-                row["budget_revise"],
-                row["budget_protocol"],
-                row["budget_status"],
-                row["budget_model"],
-                row["budget_bandwidth"],
-                row["budget_planning_capacity"],
-                row["budget_site_name_s1_ip"],
-                row["budget_site_name_s2_ip"],
-                row["budget_site_name_s1_port"],
-                row["budget_site_name_s2_port"],
             ]
         )
 

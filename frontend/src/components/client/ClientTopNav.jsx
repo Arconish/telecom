@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
 
 import {
   clientPageQueryKeys,
+  fetchPublishedHybridPagesForNav,
   fetchPublishedClientPagesForNav,
 } from "../../api/clientPageApi";
 import { useAuth } from "../../context/AuthContext";
@@ -13,6 +14,7 @@ import TopLoadingBar from "../common/TopLoadingBar";
 
 function ClientTopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   const { user, logout } = useAuth();
   const { pulseLoading } = useLoading();
@@ -22,6 +24,11 @@ function ClientTopNav() {
   const { data: items = [], isLoading: loading } = useQuery({
     queryKey: clientPageQueryKeys.publishedNav,
     queryFn: fetchPublishedClientPagesForNav,
+  });
+
+  const { data: hybridItems = [] } = useQuery({
+    queryKey: clientPageQueryKeys.publishedHybridNav,
+    queryFn: fetchPublishedHybridPagesForNav,
   });
 
   const navItems = useMemo(
@@ -34,8 +41,34 @@ function ClientTopNav() {
     [items]
   );
 
-  const featuredPath = navItems[0]?.path || null;
-  const hasActivePage = navItems.some((item) => item.path === location.pathname);
+  const hybridNavItems = useMemo(
+    () =>
+      hybridItems.map((item) => ({
+        key: item.key,
+        label: item.title,
+        path: item.client_path,
+      })),
+    [hybridItems]
+  );
+
+  const featuredPath = navItems[0]?.path || hybridNavItems[0]?.path || null;
+  const hasActiveTablePage = navItems.some((item) => item.path === location.pathname);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!menuRef.current?.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [menuOpen]);
 
   const goTo = (path) => {
     if (!path || location.pathname === path) return;
@@ -66,29 +99,53 @@ function ClientTopNav() {
               </div>
 
               <div className="hidden min-w-0 sm:flex flex-col leading-tight">
-                <span className="truncate text-sm font-semibold">Network Ops</span>
+                <span className="truncate text-sm font-semibold">Network Monitoring</span>
                 <span className="truncate text-[11px] text-sky-700">
                   Client Workspace
                 </span>
               </div>
             </button>
 
-            <div
-              className="relative"
-              onMouseEnter={() => setMenuOpen(true)}
-              onMouseLeave={() => setMenuOpen(false)}
-            >
+            <nav className="hidden min-w-0 items-center gap-3 md:flex">
+              {hybridNavItems.map((item) => {
+                const isActive = location.pathname === item.path;
+
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => goTo(item.path)}
+                    className={[
+                      "relative inline-flex h-8 items-center text-sm font-medium transition",
+                      isActive
+                        ? "text-sky-800"
+                        : "text-slate-600 hover:text-sky-800",
+                    ].join(" ")}
+                  >
+                    <span className="truncate">{item.label}</span>
+                    <span
+                      className={[
+                        "absolute inset-x-0 -bottom-2 h-0.5 rounded-full transition",
+                        isActive ? "bg-sky-600" : "bg-transparent",
+                      ].join(" ")}
+                    />
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="relative" ref={menuRef}>
               <button
                 type="button"
                 onClick={() => setMenuOpen((prev) => !prev)}
                 className={[
                   "group relative inline-flex h-8 items-center gap-1.5 text-sm font-medium transition",
-                  hasActivePage || menuOpen
+                  hasActiveTablePage || menuOpen
                     ? "text-sky-800"
                     : "text-slate-600 hover:text-sky-800",
                 ].join(" ")}
               >
-                <span>Data Tables</span>
+                <span>Tables</span>
                 <ChevronDown
                   size={14}
                   className={`transition ${menuOpen ? "rotate-180" : ""}`}
@@ -96,7 +153,7 @@ function ClientTopNav() {
                 <span
                   className={[
                     "absolute inset-x-0 -bottom-2 h-0.5 rounded-full transition",
-                    hasActivePage || menuOpen ? "bg-sky-600" : "bg-transparent",
+                    hasActiveTablePage || menuOpen ? "bg-sky-600" : "bg-transparent",
                   ].join(" ")}
                 />
               </button>
@@ -113,6 +170,12 @@ function ClientTopNav() {
                     </div>
                   ) : (
                     <div className="max-h-[320px] overflow-y-auto">
+                      {navItems.length > 0 && (
+                        <div className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Tables
+                        </div>
+                      )}
+
                       {navItems.map((item) => {
                         const isActive = location.pathname === item.path;
 
@@ -135,6 +198,7 @@ function ClientTopNav() {
                           </button>
                         );
                       })}
+
                     </div>
                   )}
                 </div>

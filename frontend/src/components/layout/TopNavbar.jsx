@@ -47,7 +47,7 @@ function TopNavbar() {
 
             <div className="hidden sm:flex flex-col items-start leading-tight">
               <span className="text-sm font-semibold text-sky-950">
-                Network Ops
+                Network Monitoring
               </span>
               <span className="text-[11px] text-sky-600">
                 Client Workspace

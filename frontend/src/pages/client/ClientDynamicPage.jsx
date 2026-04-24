@@ -191,14 +191,20 @@ function ClientDynamicPage() {
 
   const summary = useMemo(() => {
     const totalLinks = allFilteredRows.length;
-    const activeLinks = allFilteredRows.filter((row) => row.active === true).length;
-    const inactiveLinks = allFilteredRows.filter((row) => row.active === false).length;
-    const onAir = allFilteredRows.filter((row) => row.status === "On Air").length;
+    const activeLinks = allFilteredRows.filter(
+      (row) => findRowValueByColumnName(row, "active") === true
+    ).length;
+    const inactiveLinks = allFilteredRows.filter(
+      (row) => findRowValueByColumnName(row, "active") === false
+    ).length;
+    const onAir = allFilteredRows.filter(
+      (row) => findRowValueByColumnName(row, "status") === "On Air"
+    ).length;
     const down = allFilteredRows.filter(
       (row) =>
-        row.status === "Down" ||
-        row.status === "Inactive" ||
-        row.active === false
+        findRowValueByColumnName(row, "status") === "Down" ||
+        findRowValueByColumnName(row, "status") === "Inactive" ||
+        findRowValueByColumnName(row, "active") === false
     ).length;
 
     return {
@@ -683,9 +689,10 @@ function activeBadgeClass(active) {
 }
 
 function renderStyledCell(value, key, isPrimary = false) {
+  const columnName = getColumnName(key);
   const formatted = formatCell(value, key);
 
-  if (key === "status") {
+  if (columnName === "status") {
     return (
       <span
         className={`inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(
@@ -697,7 +704,7 @@ function renderStyledCell(value, key, isPrimary = false) {
     );
   }
 
-  if (key === "active") {
+  if (columnName === "active") {
     return (
       <span
         className={`inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold ${activeBadgeClass(
@@ -709,11 +716,11 @@ function renderStyledCell(value, key, isPrimary = false) {
     );
   }
 
-  if (key === "management_ip" || key === "ip_address") {
+  if (columnName === "management_ip" || columnName === "ip_address") {
     return <span className={infoBadgeClass}>{formatted}</span>;
   }
 
-  if (key === "web_protocol" || key === "protocol") {
+  if (columnName === "web_protocol" || columnName === "protocol") {
     return <span className={protocolBadgeClass}>{formatted}</span>;
   }
 
@@ -725,15 +732,30 @@ function renderStyledCell(value, key, isPrimary = false) {
 }
 
 function formatCell(value, key) {
+  const columnName = getColumnName(key);
+
   if (value === null || value === undefined || value === "") {
     return "-";
   }
 
-  if (key === "active") {
+  if (columnName === "active") {
     return value ? "Active" : "Inactive";
   }
 
   return String(value);
+}
+
+function getColumnName(key) {
+  return String(key || "").split(".").pop();
+}
+
+function findRowValueByColumnName(row, columnName) {
+  if (Object.prototype.hasOwnProperty.call(row, columnName)) {
+    return row[columnName];
+  }
+
+  const matchKey = Object.keys(row).find((key) => getColumnName(key) === columnName);
+  return matchKey ? row[matchKey] : undefined;
 }
 
 export default ClientDynamicPage;

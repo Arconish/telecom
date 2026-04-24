@@ -18,10 +18,13 @@ export const clientPageQueryKeys = {
     search,
   ],
   publishedNav: ["client-pages", "published-nav"],
+  hybridPages: ["client-pages", "hybrid-pages"],
+  publishedHybridNav: ["client-pages", "published-hybrid-nav"],
+  publishedHybridPage: (pageKey) => ["client-pages", "published-hybrid-page", pageKey],
 };
 
 export const getClientPagesApi = async () => {
-  const response = await api.get("/client-pages");
+  const response = await api.get("/client-pages/");
   return response.data;
 };
 
@@ -31,7 +34,7 @@ export const getClientPageApi = async (pageId) => {
 };
 
 export const createClientPageApi = async (payload) => {
-  const response = await api.post("/client-pages", payload);
+  const response = await api.post("/client-pages/", payload);
   return response.data;
 };
 
@@ -42,6 +45,35 @@ export const updateClientPageApi = async (pageId, payload) => {
 
 export const deleteClientPageApi = async (pageId) => {
   const response = await api.delete(`/client-pages/${pageId}`);
+  return response.data;
+};
+
+export const getClientPageTableMetadataApi = async () => {
+  const response = await api.get("/client-pages/metadata/tables");
+  return response.data;
+};
+
+export const getHybridPagesApi = async () => {
+  const response = await api.get("/client-pages/hybrid-pages");
+  return response.data;
+};
+
+export const updateHybridPageAccessApi = async (pageKey, payload) => {
+  const response = await api.put(`/client-pages/hybrid-pages/${pageKey}`, payload);
+  return response.data;
+};
+
+export const getPublishedHybridPagesForNavApi = async () => {
+  const response = await api.get("/client-pages/hybrid-pages/published/nav");
+  return response.data;
+};
+
+export const fetchPublishedHybridPagesForNav = async () => {
+  return getPublishedHybridPagesForNavApi();
+};
+
+export const getPublishedHybridPageApi = async (pageKey) => {
+  const response = await api.get(`/client-pages/hybrid-pages/published/${pageKey}`);
   return response.data;
 };
 

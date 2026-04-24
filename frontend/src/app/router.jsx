@@ -10,6 +10,7 @@ import UnauthorizedPage from "../pages/UnauthorizedPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminTopologyPage from "../pages/admin/AdminTopologyPage";
 import AdminMicrowaveLinkBudgetPage from "../pages/admin/AdminMicrowaveLinkBudgetPage";
+import AdminSiteDependencyPage from "../pages/admin/AdminSiteDependencyPage";
 import AdminSiteConnectivityPage from "../pages/admin/AdminSiteConnectivityPage";
 import AdminLinkLevelPage from "../pages/admin/AdminLinkLevelPage";
 // import AdminPagesPage from "../pages/admin/AdminPagesPage";
@@ -18,6 +19,7 @@ import AdminAuditLogsPage from "../pages/admin/AdminAuditLogsPage";
 import AdminClientPageBuilder from "../pages/admin/AdminClientPageBuilder";
 
 import ClientDynamicPage from "../pages/client/ClientDynamicPage";
+import ClientHybridPage from "../pages/client/ClientHybridPage";
 
 const router = createBrowserRouter([
   {
@@ -47,6 +49,10 @@ const router = createBrowserRouter([
         element: <AdminSiteConnectivityPage />,
       },
       {
+        path: "site-dependencies",
+        element: <AdminSiteDependencyPage />,
+      },
+      {
         path: "link-level",
         element: <AdminLinkLevelPage />,
       },
@@ -63,7 +69,10 @@ const router = createBrowserRouter([
         <ClientLayout />
       </ProtectedRoute>
     ),
-    children: [{ path: "pages/:slug", element: <ClientDynamicPage /> }],
+    children: [
+      { path: "pages/:slug", element: <ClientDynamicPage /> },
+      { path: "hybrid/:pageKey", element: <ClientHybridPage /> },
+    ],
   },
   {
     path: "/client/pages/:slug",

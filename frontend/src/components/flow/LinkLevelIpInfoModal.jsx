@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 
-function IpInfoRow({ label, value, relatedSite, onPing, onLogin, canLogin }) {
+function IpInfoRow({ label, value, port, relatedSite, onPing, onLogin, canLogin }) {
   const hasValue = Boolean(value && String(value).trim());
 
   return (
@@ -12,6 +12,9 @@ function IpInfoRow({ label, value, relatedSite, onPing, onLogin, canLogin }) {
         <div className="mt-1 truncate text-sm text-slate-800">{value || "-"}</div>
         <div className="mt-1 truncate text-[11px] text-slate-500">
           Site: {relatedSite || "-"}
+        </div>
+        <div className="mt-0.5 truncate text-[11px] text-slate-500">
+          Port: {port || "-"}
         </div>
       </div>
 
@@ -81,6 +84,8 @@ function LinkLevelIpInfoModal({
 
   const neIp = data?.site_name_s1_ip || "";
   const feIp = data?.site_name_s2_ip || "";
+  const nePort = data?.site_name_s1_port || "";
+  const fePort = data?.site_name_s2_port || "";
   const neSite = data?.site_name_s1 || data?.sitea_id || "";
   const feSite = data?.site_name_s2 || data?.siteb_id || "";
   const canLoginNe = Boolean(neIp && String(neIp).trim());
@@ -133,6 +138,7 @@ function LinkLevelIpInfoModal({
               <IpInfoRow
                 label="NE IP"
                 value={neIp}
+                port={nePort}
                 relatedSite={neSite}
                 onPing={onPingNe}
                 onLogin={onLoginNe}
@@ -141,6 +147,7 @@ function LinkLevelIpInfoModal({
               <IpInfoRow
                 label="FE IP"
                 value={feIp}
+                port={fePort}
                 relatedSite={feSite}
                 onPing={onPingFe}
                 onLogin={onLoginFe}

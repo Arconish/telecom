@@ -8,7 +8,7 @@ function AdminDashboard() {
 
   const dashboardItems = useMemo(() => {
     return [...adminMenuItems]
-      .filter((item) => item.visible && item.showOnDashboard)
+      .filter((item) => item.visible && item.path !== "/admin")
       .sort((a, b) => a.order - b.order);
   }, []);
 

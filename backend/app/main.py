@@ -10,6 +10,7 @@ from app.routers import (
     tools,
     microwave_link_budgets,
     client_pages,
+    site_dependencies,
     site_connectivity,
     link_level,
     users,
@@ -34,6 +35,7 @@ app.include_router(audit_logs.router, prefix=API_PREFIX)
 app.include_router(tools.router, prefix=API_PREFIX)
 app.include_router(microwave_link_budgets.router, prefix=API_PREFIX)
 app.include_router(client_pages.router, prefix=API_PREFIX)
+app.include_router(site_dependencies.router, prefix=API_PREFIX)
 app.include_router(site_connectivity.router, prefix=API_PREFIX)
 app.include_router(link_level.router, prefix=API_PREFIX)
 app.include_router(users.router, prefix=API_PREFIX)

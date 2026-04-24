@@ -19,6 +19,7 @@ class ClientPageUpdate(BaseModel):
     name: str | None = None
     slug: str | None = None
     title: str | None = None
+    source_table: str | None = None
     layout: dict[str, Any] | None = None
     is_published: bool | None = None
 

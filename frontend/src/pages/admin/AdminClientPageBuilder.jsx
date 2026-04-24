@@ -2,21 +2,25 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createClientPageApi,
   deleteClientPageApi,
+  getHybridPagesApi,
+  getClientPageTableMetadataApi,
   getClientPageApi,
   getClientPagesApi,
+  updateHybridPageAccessApi,
   updateClientPageApi,
 } from "../../api/clientPageApi";
-import { clientPageFields } from "../../constants/clientPageFields";
 
 const emptyConfig = {
   name: "",
   slug: "",
   title: "",
+  source_table: "microwave_link_budgets",
   is_published: false,
   layout: {
     type: "table",
     columns: [],
     filters: [],
+    joins: [],
     default_sort: { key: "link_id", direction: "asc" },
     search: {
       enabled: true,
@@ -33,6 +37,9 @@ function AdminClientPageBuilder() {
   const [pages, setPages] = useState([]);
   const [selectedPageId, setSelectedPageId] = useState(null);
   const [form, setForm] = useState(emptyConfig);
+  const [metadata, setMetadata] = useState({ tables: [], blocked_tables: [] });
+  const [hybridPages, setHybridPages] = useState([]);
+  const [updatingHybridKey, setUpdatingHybridKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -41,15 +48,36 @@ function AdminClientPageBuilder() {
     setPages(data || []);
   };
 
+  const fetchHybridPages = async () => {
+    const data = await getHybridPagesApi();
+    setHybridPages(data || []);
+  };
+
   useEffect(() => {
     fetchPages();
+    fetchHybridPages();
+    getClientPageTableMetadataApi().then((data) => {
+      setMetadata(data || { tables: [], blocked_tables: [] });
+    });
   }, []);
 
   const selectedColumns = form.layout.columns.map((c) => c.key);
+  const tables = metadata.tables || [];
+  const sourceTable = tables.find((table) => table.name === form.source_table);
+  const joinedTableNames = form.layout.joins.map((join) => join.table);
+  const selectableTables = tables.filter(
+    (table) => table.name === form.source_table || joinedTableNames.includes(table.name)
+  );
 
-  const availableFields = useMemo(
-    () => clientPageFields.filter((field) => !selectedColumns.includes(field.key)),
-    [selectedColumns]
+  const availableFieldGroups = useMemo(
+    () =>
+      selectableTables
+        .map((table) => ({
+          ...table,
+          fields: table.columns.filter((field) => !selectedColumns.includes(field.key)),
+        }))
+        .filter((table) => table.fields.length > 0),
+    [selectableTables, selectedColumns]
   );
 
   const loadPage = async (pageId) => {
@@ -59,8 +87,13 @@ function AdminClientPageBuilder() {
       name: data.name,
       slug: data.slug,
       title: data.title,
+      source_table: data.source_table || "microwave_link_budgets",
       is_published: data.is_published,
-      layout: data.layout,
+      layout: {
+        ...emptyConfig.layout,
+        ...data.layout,
+        joins: data.layout?.joins || [],
+      },
     });
   };
 
@@ -78,6 +111,20 @@ function AdminClientPageBuilder() {
     }));
   };
 
+  const handleSourceTableChange = (sourceTableName) => {
+    setForm((prev) => ({
+      ...prev,
+      source_table: sourceTableName,
+      layout: {
+        ...prev.layout,
+        columns: [],
+        filters: [],
+        joins: [],
+        default_sort: { key: "id", direction: "asc" },
+      },
+    }));
+  };
+
   const addColumn = (field) => {
     setForm((prev) => ({
       ...prev,
@@ -88,6 +135,8 @@ function AdminClientPageBuilder() {
           {
             key: field.key,
             label: field.label,
+            table: field.table,
+            column: field.name,
             visible: true,
             width: 140,
           },
@@ -150,9 +199,85 @@ function AdminClientPageBuilder() {
     } else {
       handleLayoutChange("filters", [
         ...form.layout.filters,
-        { key: field.key, label: field.label, type: "select", enabled: true },
+        {
+          key: field.key,
+          label: field.label,
+          table: field.table,
+          column: field.column,
+          type: "select",
+          enabled: true,
+        },
       ]);
     }
+  };
+
+  const addJoin = () => {
+    const targetTable = tables.find((table) => table.name !== form.source_table);
+    const sourceLinkColumn =
+      sourceTable?.columns.find((column) => column.name === "link_id") ||
+      sourceTable?.columns.find((column) => column.is_primary) ||
+      sourceTable?.columns[0];
+    const targetLinkColumn =
+      targetTable?.columns.find((column) => column.name === "link_id") ||
+      targetTable?.columns.find((column) => column.is_primary) ||
+      targetTable?.columns[0];
+
+    if (!targetTable || !sourceLinkColumn || !targetLinkColumn) return;
+
+    handleLayoutChange("joins", [
+      ...form.layout.joins,
+      {
+        table: targetTable.name,
+        type: "left",
+        left: sourceLinkColumn.key,
+        right: targetLinkColumn.key,
+      },
+    ]);
+  };
+
+  const updateJoin = (index, key, value) => {
+    if (key === "table") {
+      const nextTableColumns = getColumnsForTable(value);
+      const nextRightColumn =
+        nextTableColumns.find((column) => column.name === "link_id") ||
+        nextTableColumns.find((column) => column.is_primary) ||
+        nextTableColumns[0];
+
+      handleLayoutChange(
+        "joins",
+        form.layout.joins.map((join, joinIndex) =>
+          joinIndex === index
+            ? { ...join, table: value, right: nextRightColumn?.key || join.right }
+            : join
+        )
+      );
+      return;
+    }
+
+    handleLayoutChange(
+      "joins",
+      form.layout.joins.map((join, joinIndex) =>
+        joinIndex === index ? { ...join, [key]: value } : join
+      )
+    );
+  };
+
+  const removeJoin = (index) => {
+    const removedTable = form.layout.joins[index]?.table;
+
+    setForm((prev) => ({
+      ...prev,
+      layout: {
+        ...prev.layout,
+        joins: prev.layout.joins.filter((_, joinIndex) => joinIndex !== index),
+        columns: removedTable
+          ? prev.layout.columns.filter((col) => col.table !== removedTable)
+          : prev.layout.columns,
+        filters: removedTable
+          ? prev.layout.filters.filter((filter) => filter.table !== removedTable)
+          : prev.layout.filters,
+      },
+    }));
   };
 
   const savePage = async () => {
@@ -196,6 +321,41 @@ function AdminClientPageBuilder() {
     }
   };
 
+  const toggleHybridPage = async (pageKey, isEnabled) => {
+    try {
+      setUpdatingHybridKey(pageKey);
+      const updated = await updateHybridPageAccessApi(pageKey, {
+        is_enabled: isEnabled,
+      });
+      setHybridPages((prev) =>
+        prev.map((page) => (page.key === pageKey ? updated : page))
+      );
+      setMessage(
+        `${updated.title} ${updated.is_enabled ? "enabled" : "disabled"} for client access`
+      );
+    } catch (error) {
+      setMessage(
+        error?.response?.data?.detail || "Failed to update shared page access"
+      );
+    } finally {
+      setUpdatingHybridKey("");
+    }
+  };
+
+  const getColumnsForTable = (tableName) =>
+    tables.find((table) => table.name === tableName)?.columns || [];
+
+  const getJoinableTables = (currentJoinIndex) => {
+    const otherJoinedTables = form.layout.joins
+      .filter((_, index) => index !== currentJoinIndex)
+      .map((join) => join.table);
+
+    return tables.filter(
+      (table) =>
+        table.name !== form.source_table && !otherJoinedTables.includes(table.name)
+    );
+  };
+
   return (
     <div className="w-full space-y-4">
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -214,6 +374,52 @@ function AdminClientPageBuilder() {
             New Page
           </button>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3">
+          <h2 className="text-sm font-bold text-slate-900">Hybrid Page Access</h2>
+          <p className="text-xs text-slate-500">
+            Publish approved admin tools into the client workspace without exposing the admin console.
+          </p>
+        </div>
+
+        {hybridPages.length === 0 ? (
+          <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500">
+            No hybrid pages are registered.
+          </div>
+        ) : (
+          <div className="grid gap-2 lg:grid-cols-2">
+            {hybridPages.map((page) => (
+              <div
+                key={page.key}
+                className="flex items-center justify-between gap-3 rounded-md border border-slate-200 p-3"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-800">
+                    {page.title}
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-500">
+                    {page.description}
+                  </div>
+                  <div className="mt-1 truncate text-[11px] text-slate-400">
+                    Client path: {page.client_path}
+                  </div>
+                </div>
+
+                <label className="flex shrink-0 items-center gap-2 text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={page.is_enabled}
+                    disabled={updatingHybridKey === page.key}
+                    onChange={(e) => toggleHybridPage(page.key, e.target.checked)}
+                  />
+                  Client access
+                </label>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {message && (
@@ -280,6 +486,20 @@ function AdminClientPageBuilder() {
                 />
               </Field>
 
+              <Field label="Source table">
+                <select
+                  value={form.source_table}
+                  onChange={(e) => handleSourceTableChange(e.target.value)}
+                  className={inputClass}
+                >
+                  {tables.map((table) => (
+                    <option key={table.name} value={table.name}>
+                      {table.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
               <Field label="Default page size">
                 <select
                   value={form.layout.pagination.page_size}
@@ -311,21 +531,158 @@ function AdminClientPageBuilder() {
             </div>
           </div>
 
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Table Joins</h2>
+                <p className="text-xs text-slate-500">
+                  Add related operational tables before selecting their columns.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={addJoin}
+                disabled={getJoinableTables(-1).length === 0}
+                className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Add Join
+              </button>
+            </div>
+
+            {form.layout.joins.length === 0 ? (
+              <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500">
+                No joins configured. Columns will come from the source table only.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {form.layout.joins.map((join, index) => {
+                  const joinableTables = getJoinableTables(index);
+                  const joinTableColumns = getColumnsForTable(join.table);
+                  const sourceColumns = sourceTable?.columns || [];
+                  const leftColumns = [...sourceColumns, ...joinTableColumns];
+                  const rightColumns = [...sourceColumns, ...joinTableColumns];
+
+                  return (
+                    <div
+                      key={`${join.table}-${index}`}
+                      className="grid gap-2 rounded-md border border-slate-200 p-3 xl:grid-cols-[150px_120px_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                    >
+                      <select
+                        value={join.table}
+                        onChange={(e) => updateJoin(index, "table", e.target.value)}
+                        className={inputClass}
+                      >
+                        {joinableTables.map((table) => (
+                          <option key={table.name} value={table.name}>
+                            {table.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={join.type || "left"}
+                        onChange={(e) => updateJoin(index, "type", e.target.value)}
+                        className={inputClass}
+                      >
+                        <option value="left">Left join</option>
+                        <option value="inner">Inner join</option>
+                      </select>
+
+                      <select
+                        value={join.left}
+                        onChange={(e) => updateJoin(index, "left", e.target.value)}
+                        className={inputClass}
+                      >
+                        {leftColumns.map((column) => (
+                          <option key={column.key} value={column.key}>
+                            {column.key}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={join.right}
+                        onChange={(e) => updateJoin(index, "right", e.target.value)}
+                        className={inputClass}
+                      >
+                        {rightColumns.map((column) => (
+                          <option key={column.key} value={column.key}>
+                            {column.key}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() => removeJoin(index)}
+                        className="rounded-md border border-red-300 bg-white px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="grid gap-4 xl:grid-cols-2">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">Available Fields</h2>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                {availableFields.map((field) => (
-                  <button
-                    key={field.key}
-                    onClick={() => addColumn(field)}
-                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
-                  >
-                    {field.label}
-                  </button>
-                ))}
+              <div className="mb-3">
+                <h2 className="text-sm font-bold text-slate-900">Available Fields</h2>
+                <p className="text-xs text-slate-500">
+                  Choose columns from the source table and configured joins.
+                </p>
               </div>
+
+              {availableFieldGroups.length === 0 ? (
+                <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500">
+                  All available fields are already selected.
+                </div>
+              ) : (
+                <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+                  {availableFieldGroups.map((table) => (
+                    <div
+                      key={table.name}
+                      className="overflow-hidden rounded-md border border-slate-200"
+                    >
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-bold text-slate-800">
+                            {table.label}
+                          </div>
+                          <div className="truncate text-[11px] text-slate-500">
+                            {table.name}
+                          </div>
+                        </div>
+
+                        <span className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                          {table.fields.length} fields
+                        </span>
+                      </div>
+
+                      <div className="grid gap-2 p-2 sm:grid-cols-2">
+                        {table.fields.map((field) => (
+                          <button
+                            key={field.key}
+                            type="button"
+                            onClick={() => addColumn(field)}
+                            className="min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                          >
+                            <div className="truncate text-xs font-semibold text-slate-700">
+                              {field.label}
+                            </div>
+                            <div className="mt-0.5 truncate text-[10px] text-slate-400">
+                              {field.name}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
