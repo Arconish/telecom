@@ -18,6 +18,7 @@ SHARED_ENV="/opt/app/shared/backend.env"
 VENV_DIR="${VENV_DIR:-${BACKEND_DIR}/.venv}"
 DB_INIT_SCRIPT="${APP_ROOT}/init_local_postgres.sh"
 PARAM_PREFIX="/nw-monitor/mvp/backend"
+ADMIN_PARAM_PREFIX="/nw-monitor/mvp/admin"
 
 echo "[deploy] Downloading artifact from s3://${S3_BUCKET}/${S3_KEY} ..."
 aws s3 cp "s3://${S3_BUCKET}/${S3_KEY}" /tmp/deploy.tar.gz
@@ -74,11 +75,30 @@ if [ -f "${SHARED_ENV}" ]; then
   source "${SHARED_ENV}"
   set +a
 fi
+echo "[deploy] Fetching admin bootstrap values from Parameter Store ..."
+SEED_ADMIN_USERNAME="$(aws ssm get-parameter \
+  --name "${ADMIN_PARAM_PREFIX}/username" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text)"
+SEED_ADMIN_EMAIL="$(aws ssm get-parameter \
+  --name "${ADMIN_PARAM_PREFIX}/email" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text)"
+SEED_ADMIN_PASSWORD="$(aws ssm get-parameter \
+  --name "${ADMIN_PARAM_PREFIX}/password" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text)"
+export SEED_ADMIN_USERNAME
+export SEED_ADMIN_EMAIL
+export SEED_ADMIN_PASSWORD
 export DATABASE_URL="postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@${DB_HOST:-127.0.0.1}:${DB_PORT:-5432}/${DB_NAME:-network_ops_db}"
-if [ -n "${SEED_ADMIN_USERNAME:-}" ] && [ -n "${SEED_ADMIN_EMAIL:-}" ] && [ -n "${SEED_ADMIN_PASSWORD:-}" ]; then
-  echo "[deploy] Admin seed values supplied by deploy environment."
+if [ -n "${SEED_ADMIN_USERNAME}" ] && [ -n "${SEED_ADMIN_EMAIL}" ] && [ -n "${SEED_ADMIN_PASSWORD}" ]; then
+  echo "[deploy] Admin seed values supplied by Parameter Store."
 else
-  echo "[deploy] Admin seed values not fully supplied by deploy environment. Falling back to shared env if present."
+  echo "[deploy] Admin seed values not fully supplied by Parameter Store."
 fi
 for attempt in 1 2 3 4 5; do
   if APP_ENV=production "${VENV_DIR}/bin/python" -m app.scripts.seed_initial_data; then

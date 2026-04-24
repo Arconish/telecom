@@ -96,6 +96,9 @@ This repo does not create infrastructure by itself. The current MVP deployment e
 - runtime access from the EC2 instance role to AWS Systems Manager Parameter Store for:
   - `/nw-monitor/mvp/backend/secret_key`
   - `/nw-monitor/mvp/backend/db_password`
+  - `/nw-monitor/mvp/admin/username`
+  - `/nw-monitor/mvp/admin/email`
+  - `/nw-monitor/mvp/admin/password`
 
 If the infra repo changes any of the host paths, service name, or deploy target tag, this repo must stay aligned.
 
@@ -138,7 +141,7 @@ DeployTarget=nw-monitor-dashboard-mvp-app-host
 
 Non-secret production configuration belongs in `backend/.env.production`.
 
-Secrets are not committed here. In MVP they are fetched at runtime from Parameter Store by `start.sh`.
+Secrets are not committed here. In MVP, runtime backend secrets are fetched from Parameter Store by `start.sh`, and deploy-time admin bootstrap values are fetched from Parameter Store by `deploy.sh` on the EC2 host.
 
 ## Important Scripts
 
@@ -153,6 +156,8 @@ This script runs on the EC2 host during deployment. It:
 - copies `start.sh` into `/opt/app/current/start.sh`
 - creates or reuses a backend virtual environment
 - installs backend dependencies from `backend/requirements.txt`
+- fetches admin bootstrap values from Parameter Store
+- seeds the initial admin user if it does not already exist
 - restarts the `saas-app` systemd service
 
 ### `start.sh`

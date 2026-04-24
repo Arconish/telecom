@@ -111,6 +111,11 @@ Expected Parameter Store paths:
 
 - `/nw-monitor/mvp/backend/secret_key`
 - `/nw-monitor/mvp/backend/db_password`
+- `/nw-monitor/mvp/admin/username`
+- `/nw-monitor/mvp/admin/email`
+- `/nw-monitor/mvp/admin/password`
+
+`deploy.sh` fetches the admin bootstrap values on the EC2 host and exports them as `SEED_ADMIN_*` variables for `app.scripts.seed_initial_data`.
 
 ## Requirements File
 

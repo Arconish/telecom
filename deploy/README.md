@@ -44,14 +44,6 @@ Important behavior:
 - `APP_DOMAIN`
 - `DEPLOY_TARGET_TAG_VALUE`
 
-Optional GitHub environment secrets for automatic admin bootstrap:
-
-- `SEED_ADMIN_USERNAME`
-- `SEED_ADMIN_EMAIL`
-- `SEED_ADMIN_PASSWORD`
-
-When all three are set, the deploy workflow passes them to `deploy.sh`, and the backend seed script will create the admin user if it does not already exist.
-
 Default workflow tag key:
 
 ```text
@@ -79,6 +71,14 @@ The infra side must provide:
 - EC2 instance role permissions to:
   - read release artifacts from S3
   - read required Parameter Store values
+
+Required Parameter Store values:
+
+- `/nw-monitor/mvp/backend/secret_key`
+- `/nw-monitor/mvp/backend/db_password`
+- `/nw-monitor/mvp/admin/username`
+- `/nw-monitor/mvp/admin/email`
+- `/nw-monitor/mvp/admin/password`
 
 The host must also have:
 
@@ -113,7 +113,8 @@ Responsibilities:
 - publish `start.sh` to `/opt/app/current/start.sh`
 - create or update the backend virtualenv
 - install backend dependencies using the virtualenv `pip`
-- optionally seed the admin user when `SEED_ADMIN_*` values are provided by the workflow
+- fetch admin bootstrap values from Parameter Store on the EC2 host
+- seed the admin user through `app.scripts.seed_initial_data` if it does not already exist
 - restart `saas-app`
 
 Important defaults:
