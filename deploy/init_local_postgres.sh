@@ -2,12 +2,16 @@
 set -euo pipefail
 
 ENV_FILE="/opt/app/shared/backend.env"
+EXISTING_DB_PASSWORD="${DB_PASSWORD:-}"
 
 if [ -f "${ENV_FILE}" ]; then
   set -a
   # shellcheck disable=SC1090
   source "${ENV_FILE}"
   set +a
+fi
+if [ -n "${EXISTING_DB_PASSWORD}" ]; then
+  DB_PASSWORD="${EXISTING_DB_PASSWORD}"
 fi
 
 DB_HOST="${DB_HOST:-127.0.0.1}"

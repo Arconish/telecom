@@ -47,6 +47,12 @@ if [ ! -f "${SHARED_ENV}" ]; then
   echo "[deploy] Creating ${SHARED_ENV} from example ..."
   cp "${BACKEND_DIR}/.env.production.example" "${SHARED_ENV}"
 fi
+if [ -f "${SHARED_ENV}" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${SHARED_ENV}"
+  set +a
+fi
 
 echo "[deploy] Installing backend dependencies ..."
 cd "${BACKEND_DIR}"
@@ -69,12 +75,6 @@ echo "[deploy] Restarting backend service to create tables ..."
 systemctl restart saas-app
 
 echo "[deploy] Seeding initial data ..."
-if [ -f "${SHARED_ENV}" ]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "${SHARED_ENV}"
-  set +a
-fi
 echo "[deploy] Fetching admin bootstrap values from Parameter Store ..."
 SEED_ADMIN_USERNAME="$(aws ssm get-parameter \
   --name "${ADMIN_PARAM_PREFIX}/username" \
