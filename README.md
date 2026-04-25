@@ -29,6 +29,12 @@ The deployed MVP uses a same-domain layout:
 
 This repo assumes the backend is reachable behind Nginx rather than directly from the browser in production.
 
+Current MVP public domain:
+
+```text
+demo.monitor.buildwithhein.com
+```
+
 ## Local Development
 
 ### Frontend
@@ -83,6 +89,12 @@ This repo does not create infrastructure by itself. The current MVP deployment e
   - `/var/www/app`
   - `/opt/app/current`
   - `/opt/app/shared`
+- `/opt/app/shared/backend.env` created by infra before the first app deploy, containing non-secret MVP runtime settings such as:
+  - `DB_HOST=127.0.0.1`
+  - `DB_PORT=5432`
+  - `DB_NAME=network_ops_db`
+  - `DB_USER=app`
+  - public frontend/backend URLs for `demo.monitor.buildwithhein.com`
 - AWS CLI available on the host
 - Python 3 and `python3-venv` available on the host
 - the EC2 instance registered with AWS Systems Manager and online
@@ -116,7 +128,7 @@ The MVP deployment flow is:
 5. GitHub Actions sends an SSM Run Command to the tagged host.
 6. The host executes [deploy.sh](./deploy.sh).
 7. `deploy.sh` installs backend dependencies into a virtual environment and restarts `saas-app`.
-8. The systemd service executes [start.sh](./start.sh), which fetches secrets from Parameter Store and launches Uvicorn.
+8. The systemd service executes [start.sh](./start.sh), which loads infra-owned non-secret config, fetches runtime secrets from Parameter Store, and launches Uvicorn.
 
 See [deploy/README.md](./deploy/README.md) for the full deploy contract.
 
@@ -139,7 +151,7 @@ DeployTarget=nw-monitor-dashboard-mvp-app-host
 
 ## Secrets And Runtime Configuration
 
-Non-secret production configuration belongs in `backend/.env.production`.
+For MVP, infra owns the non-secret production runtime file at `/opt/app/shared/backend.env`. `backend/.env.production.example` is only a fallback/template for that shape.
 
 Secrets are not committed here. In MVP, runtime backend secrets are fetched from Parameter Store by `start.sh`, and deploy-time admin bootstrap values are fetched from Parameter Store by `deploy.sh` on the EC2 host.
 
@@ -154,8 +166,10 @@ This script runs on the EC2 host during deployment. It:
 - copies frontend assets into `/var/www/app`
 - copies backend code into `/opt/app/current/backend`
 - copies `start.sh` into `/opt/app/current/start.sh`
+- loads non-secret runtime settings from `/opt/app/shared/backend.env`
 - creates or reuses a backend virtual environment
 - installs backend dependencies from `backend/requirements.txt`
+- fetches the DB password from Parameter Store for bootstrap tasks
 - fetches admin bootstrap values from Parameter Store
 - seeds the initial admin user if it does not already exist
 - restarts the `saas-app` systemd service

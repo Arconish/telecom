@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     db_host: str = "localhost"
     db_port: int = 5432
     db_name: str = "network_ops_db"
-    db_user: str = "postgres"
+    db_user: str = "app"
     db_password: str = ""
     database_url: str = ""
 

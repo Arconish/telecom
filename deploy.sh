@@ -94,7 +94,7 @@ SEED_ADMIN_PASSWORD="$(aws ssm get-parameter \
 export SEED_ADMIN_USERNAME
 export SEED_ADMIN_EMAIL
 export SEED_ADMIN_PASSWORD
-export DATABASE_URL="postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@${DB_HOST:-127.0.0.1}:${DB_PORT:-5432}/${DB_NAME:-network_ops_db}"
+export DATABASE_URL="postgresql://${DB_USER:-app}:${DB_PASSWORD}@${DB_HOST:-127.0.0.1}:${DB_PORT:-5432}/${DB_NAME:-network_ops_db}"
 if [ -n "${SEED_ADMIN_USERNAME}" ] && [ -n "${SEED_ADMIN_EMAIL}" ] && [ -n "${SEED_ADMIN_PASSWORD}" ]; then
   echo "[deploy] Admin seed values supplied by Parameter Store."
 else

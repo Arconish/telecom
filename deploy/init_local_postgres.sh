@@ -17,7 +17,7 @@ fi
 DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-network_ops_db}"
-DB_USER="${DB_USER:-postgres}"
+DB_USER="${DB_USER:-app}"
 DB_PASSWORD="${DB_PASSWORD:-}"
 
 if [ "${DB_HOST}" != "127.0.0.1" ] && [ "${DB_HOST}" != "localhost" ]; then

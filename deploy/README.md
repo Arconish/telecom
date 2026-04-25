@@ -19,7 +19,7 @@ The MVP deploy flow is:
 5. GitHub Actions sends an SSM Run Command to the tagged host.
 6. The EC2 host downloads and runs `deploy.sh`.
 7. `deploy.sh` installs backend dependencies into a virtualenv and restarts `saas-app`.
-8. `saas-app` executes `start.sh`, which fetches secrets and starts the backend.
+8. `saas-app` executes `start.sh`, which loads infra-owned non-secret config, fetches runtime secrets, and starts the backend.
 
 ## Workflow File
 
@@ -41,7 +41,7 @@ Important behavior:
 - `AWS_APP_MVP_ROLE_ARN` or `AWS_MVP_APP_DEPLOY_ROLE_ARN`
 - `DEPLOY_BUCKET_NAME`
 - `DEPLOY_PREFIX`
-- `APP_DOMAIN`
+- `APP_DOMAIN` (`demo.monitor.buildwithhein.com` for the current MVP)
 - `DEPLOY_TARGET_TAG_VALUE`
 
 Default workflow tag key:
@@ -91,6 +91,16 @@ The host must also have:
   - `/var/www/app`
   - `/opt/app/current`
   - `/opt/app/shared`
+- infra-created non-secret runtime env file:
+  - `/opt/app/shared/backend.env`
+
+Current MVP runtime values from that file include:
+
+- `DB_HOST=127.0.0.1`
+- `DB_PORT=5432`
+- `DB_NAME=network_ops_db`
+- `DB_USER=app`
+- frontend/backend URLs for `demo.monitor.buildwithhein.com`
 
 For the standard MVP deployment shape, Nginx should:
 
@@ -111,8 +121,10 @@ Responsibilities:
 - publish frontend files to `/var/www/app`
 - publish backend files to `/opt/app/current/backend`
 - publish `start.sh` to `/opt/app/current/start.sh`
+- load `/opt/app/shared/backend.env`
 - create or update the backend virtualenv
 - install backend dependencies using the virtualenv `pip`
+- fetch the DB password from Parameter Store for bootstrap tasks
 - fetch admin bootstrap values from Parameter Store on the EC2 host
 - seed the admin user through `app.scripts.seed_initial_data` if it does not already exist
 - restart `saas-app`

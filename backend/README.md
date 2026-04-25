@@ -99,12 +99,14 @@ That keeps local browser behavior close to MVP production and avoids needing sep
 
 ## Production Configuration
 
-Use `backend/.env.production.example` as the template for non-secret production config.
+Use `backend/.env.production.example` as a fallback template for non-secret production config.
 
 In the MVP deployment:
 
-- non-secret config lives at `/opt/app/shared/backend.env`
+- non-secret config lives at `/opt/app/shared/backend.env`, created by infra before the first app deploy
+- current MVP DB defaults are `DB_NAME=network_ops_db` and `DB_USER=app`
 - secrets are fetched at runtime by `start.sh` from AWS Systems Manager Parameter Store
+- admin bootstrap values are fetched at deploy time by `deploy.sh` from AWS Systems Manager Parameter Store
 - Nginx reverse proxies `/api` to the backend service on the same host
 
 Expected Parameter Store paths:
@@ -115,7 +117,7 @@ Expected Parameter Store paths:
 - `/nw-monitor/mvp/admin/email`
 - `/nw-monitor/mvp/admin/password`
 
-`deploy.sh` fetches the admin bootstrap values on the EC2 host and exports them as `SEED_ADMIN_*` variables for `app.scripts.seed_initial_data`.
+`deploy.sh` fetches the admin bootstrap values on the EC2 host and exports them as `SEED_ADMIN_*` variables for `app.scripts.seed_initial_data`; they are not supplied by GitHub Actions secrets.
 
 ## Requirements File
 
