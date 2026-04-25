@@ -67,4 +67,14 @@ else
   echo "[init-db] Database ${DB_NAME} already exists."
 fi
 
+echo "[init-db] Ensuring database and public schema privileges for ${DB_USER} ..."
+sudo -u postgres env PGPORT="${DB_PORT}" psql -v ON_ERROR_STOP=1 <<EOF
+ALTER DATABASE "${DB_NAME}" OWNER TO "${DB_USER}";
+GRANT ALL PRIVILEGES ON DATABASE "${DB_NAME}" TO "${DB_USER}";
+EOF
+sudo -u postgres env PGPORT="${DB_PORT}" psql -v ON_ERROR_STOP=1 --dbname "${DB_NAME}" <<EOF
+GRANT USAGE, CREATE ON SCHEMA public TO "${DB_USER}";
+ALTER SCHEMA public OWNER TO "${DB_USER}";
+EOF
+
 echo "[init-db] Local PostgreSQL bootstrap complete."
