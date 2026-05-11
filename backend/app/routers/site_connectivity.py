@@ -178,6 +178,7 @@ def site_connectivity_summary(
     }
 
 
+@router.get("", include_in_schema=False)
 @router.get("/")
 def list_site_connectivity(
     search: str = Query(default=""),
@@ -215,6 +216,7 @@ def list_site_connectivity(
     }
 
 
+@router.post("", include_in_schema=False)
 @router.post("/")
 def create_site_connectivity(
     payload: dict[str, Any],
@@ -342,6 +344,7 @@ def bulk_delete_site_connectivity(
     return {"message": "Selected site connectivity records deleted successfully"}
 
 
+@router.delete("", include_in_schema=False)
 @router.delete("/")
 def delete_all_site_connectivity(
     db: Session = Depends(get_db),

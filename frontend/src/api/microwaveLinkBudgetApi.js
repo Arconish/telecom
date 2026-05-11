@@ -1,7 +1,7 @@
 import api from "./axios";
 
 export const getMicrowaveLinkBudgets = async (params = {}) => {
-  const response = await api.get("/microwave-link-budgets", { params });
+  const response = await api.get("/microwave-link-budgets/", { params });
   return response.data;
 };
 
@@ -11,7 +11,7 @@ export const getMicrowaveLinkBudgetSummary = async () => {
 };
 
 export const createMicrowaveLinkBudget = async (payload) => {
-  const response = await api.post("/microwave-link-budgets", payload);
+  const response = await api.post("/microwave-link-budgets/", payload);
   return response.data;
 };
 
@@ -31,7 +31,7 @@ export const deleteAllMicrowaveLinkBudgets = async () => {
 };
 
 export const bulkDeleteMicrowaveLinkBudgets = async (ids) => {
-  const response = await api.delete("/microwave-link-budgets", {
+  const response = await api.delete("/microwave-link-budgets/", {
     params: { ids },
     paramsSerializer: {
       indexes: null,

@@ -8,7 +8,7 @@ export const getSiteConnectivity = async ({
   sortBy = "id",
   sortOrder = "desc",
 } = {}) => {
-  const { data } = await api.get("/site-connectivity", {
+  const { data } = await api.get("/site-connectivity/", {
     params: {
       search,
       category,
@@ -34,7 +34,7 @@ export const getSiteConnectivityCategoryOptions = async () => {
 };
 
 export const createSiteConnectivity = async (payload) => {
-  const { data } = await api.post("/site-connectivity", payload);
+  const { data } = await api.post("/site-connectivity/", payload);
   return data;
 };
 
@@ -54,7 +54,7 @@ export const bulkDeleteSiteConnectivity = async (ids) => {
 };
 
 export const deleteAllSiteConnectivity = async () => {
-  const { data } = await api.delete("/site-connectivity");
+  const { data } = await api.delete("/site-connectivity/");
   return data;
 };
 

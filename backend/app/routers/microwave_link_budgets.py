@@ -241,6 +241,7 @@ def build_filtered_query(
     return query
 
 
+@router.get("", include_in_schema=False)
 @router.get("/")
 def get_microwave_link_budgets(
     page: int = 1,
@@ -314,6 +315,7 @@ def get_microwave_link_budget_summary(
     }
 
 
+@router.post("", response_model=MicrowaveLinkBudgetRead, include_in_schema=False)
 @router.post("/", response_model=MicrowaveLinkBudgetRead)
 def create_microwave_link_budget(
     payload: MicrowaveLinkBudgetCreate,
@@ -399,6 +401,7 @@ def delete_all_microwave_link_budgets(
     }
 
 
+@router.delete("", include_in_schema=False)
 @router.delete("/")
 def bulk_delete_microwave_link_budgets(
     ids: list[int] = Query(...),
